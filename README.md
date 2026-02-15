@@ -147,13 +147,6 @@ dotnet test
 
 ---
 
-- 🏗️ [Architecture](docs/architecture.md) — Design patterns and system structure
-- 📖 [Using the Libraries](docs/using-the-libraries.md) — Integrate into your own projects
-- ✨ [Smart Instruction Loading](docs/SMART_INSTRUCTION_LOADING.md) — How agent instructions are loaded
-- 🔎 [BuildReviewer Implementation](docs/BUILD_REVIEWER_IMPLEMENTATION.md) — Quality analysis phase
-
----
-
 ## 🎬 Stay Updated & Connect
 
 Love this library? Want to see how to use it in action? Check out my content across the web:
