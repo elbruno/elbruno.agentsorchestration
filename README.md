@@ -154,6 +154,31 @@ dotnet test
 
 ---
 
+## 🎬 Stay Updated & Connect
+
+Love this library? Want to see how to use it in action? Check out my content across the web:
+
+### 🚀 Follow the Journey
+
+- **💻 [GitHub](https://github.com/elbruno/)** — Explore all my projects and contributions
+- **📝 [Blog](https://elbruno.com)** — Deep dives into AI, orchestration, and .NET development
+- **🎙️ [Podcast](https://notienenombre.com)** — Tech talks and interviews (Spanish 🇪🇸)
+- **▶️ [YouTube](https://www.youtube.com/elbruno)** — Video tutorials and live coding sessions
+- **💼 [LinkedIn](https://www.linkedin.com/in/elbruno/)** — Professional insights and updates
+- **𝕏 [Twitter/X](https://www.x.com/in/elbruno/)** — Quick tips, updates, and community engagement
+
+**Star ⭐ this repo if you find it helpful, and share it with your team!**
+
+---
+
+## 👋 About the Author
+
+Hi! I'm **ElBruno**, a software architect and AI enthusiast passionate about building production-grade orchestration systems. I create tools that help developers leverage AI agents to automate complex workflows.
+
+If you have questions, feedback, or want to chat about this project—hit me up on any of the platforms above! 🤝
+
+---
+
 ## License
 
 MIT

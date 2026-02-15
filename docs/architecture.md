@@ -426,3 +426,18 @@ All agents read from and write to the same workspace directory. The `AppRunner` 
 ### Connecting a real LLM
 
 Implement `IAgentClient` and register it in DI. The interface is designed so that the orchestration engine, factory, and UI are completely decoupled from any specific LLM provider.
+
+---
+
+## 💡 Go Deeper & Connect
+
+Intrigued by the architecture? Want to see how it all works in practice?
+
+- **👨‍💻 [GitHub Repository](https://github.com/elbruno/)** — Explore the full source code and other projects
+- **📖 [Architecture Blog Posts](https://elbruno.com)** — In-depth explanations of design decisions
+- **🎬 [Video Walkthroughs](https://www.youtube.com/elbruno)** — Live coding sessions showing the system in action
+- **🎙️ [Tech Podcast](https://notienenombre.com)** — Discussions on AI orchestration and agent systems (Spanish 🇪🇸)
+- **💼 [LinkedIn](https://www.linkedin.com/in/elbruno/)** — Professional insights and industry thoughts
+- **𝕏 [Twitter/X](https://www.x.com/in/elbruno/)** — Quick architecture tips and community engagement
+
+**Have ideas or improvements?** Open an issue or PR on [GitHub](https://github.com/elbruno/) — contributions are always welcome! 🚀

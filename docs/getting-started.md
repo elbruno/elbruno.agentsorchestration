@@ -317,3 +317,16 @@ workspaces/
 - Explore the orchestration plan in [docs/plans/orchestration-plan.md](plans/orchestration-plan.md)
 - Look at the agent instructions in `src/AgentsOrchestration.Core/Instructions/` to understand how each agent is guided
 - Use the [REST API](../README.md#rest-api) endpoints for programmatic access to agent configuration and orchestration
+
+---
+
+## 🎓 Want to Learn More?
+
+Building AI orchestration systems is exciting! If you want to dive deeper into agent architecture, checkout my content:
+
+- **📝 [Detailed Blog Posts](https://elbruno.com)** — Technical deep-dives on orchestration patterns
+- **▶️ [Video Tutorials](https://www.youtube.com/elbruno)** — Watch me build and explain the system live
+- **🎙️ [Podcast Episodes](https://notienenombre.com)** — Interviews and discussions about AI agents (Spanish 🇪🇸)
+- **💼 [LinkedIn insights](https://www.linkedin.com/in/elbruno/)** — Quick tips and updates
+
+**Have questions or feedback?** Reach out on [Twitter/X](https://www.x.com/in/elbruno/) or [GitHub](https://github.com/elbruno/) — I love hearing from the community! 🙌
