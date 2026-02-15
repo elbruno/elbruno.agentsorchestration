@@ -7,6 +7,39 @@ This roadmap tracks planned future enhancements for the Multi-Agent Orchestratio
 
 ---
 
+## Recently Completed Features ✅
+
+### Conversation Management Enhancement
+
+**Status:** Completed ✅  
+**Priority:** High  
+**Complexity:** Medium  
+**Completed:** 2026-02-15  
+**Plan:** [plan_260215_1529.md](plan_260215_1529.md)
+
+Enhanced multi-turn conversation management with persistence, context awareness, and export capabilities.
+
+**Features Implemented:**
+
+- ✅ Comprehensive unit tests for ConversationManager
+- ✅ Input validation and error handling
+- ✅ SessionPersistence service with JSON serialization
+- ✅ Session save/load/resume from disk
+- ✅ Context size awareness (token estimation, trimming)
+- ✅ Markdown export for conversations
+- ✅ Enhanced console UI with session metadata
+- ✅ Auto-save after each turn
+- ✅ Token count display in menus
+
+**Use Cases:**
+
+- Resume incomplete orchestration sessions across app restarts
+- Track token usage to prevent context overflow
+- Export conversation history for documentation or sharing
+- Persist multi-turn conversations for auditing and reuse
+
+---
+
 ## Research Agent Enhancements
 
 Related to: [plan_260215_1800.md](plan_260215_1800.md) — Researcher Agent Implementation

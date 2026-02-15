@@ -1,13 +1,10 @@
 # Getting Started
 
-This guide walks you through using the **ElBruno.AgentsOrchestration** library and running the sample applications.
-
-> **💡 Tip:** For a complete comparison of all samples, see the [Samples Overview](samples-overview.md).
+This guide teaches you how to use the **ElBruno.AgentsOrchestration** libraries by starting with the simplest possible code and progressively adding features. By the end, you'll understand how to build, customize, and monitor multi-agent orchestration systems.
 
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [.NET Aspire workload](https://learn.microsoft.com/dotnet/aspire/fundamentals/setup-tooling) (optional, for the Aspire sample)
 
 Verify your setup:
 
@@ -15,314 +12,387 @@ Verify your setup:
 dotnet --version         # should print 10.x
 ```
 
-## Quick Start: Two Ways to Initialize
+## Your First Orchestration
 
-The library offers two initialization approaches depending on your scenario:
+Create a new console app and add the Core package:
 
-### 1. Static Factory Method (Simplest)
+```bash
+dotnet new console -n MyFirstOrchestration
+cd MyFirstOrchestration
+dotnet add package ElBruno.AgentsOrchestration.Core
+```
 
-For console apps, scripts, and prototypes:
+Replace `Program.cs` with this minimal code:
 
 ```csharp
 using ElBruno.AgentsOrchestration.Core.Orchestration;
 using ElBruno.AgentsOrchestration.Orchestration;
 
 var service = OrchestrationServiceFactory.Create();
-var result = await service.RunAsync(new OrchestrationRequest("Your prompt"), CancellationToken.None);
+var result = await service.RunAsync(
+    new OrchestrationRequest("Create a .NET console app that prints 'Hello, World!'"),
+    CancellationToken.None
+);
+
+Console.WriteLine($"✅ Done! Workspace: {result.WorkspacePath}");
 ```
 
-**When to use:**
+Run it:
 
-- Quick scripts and demos
-- Single-file console applications
-- Prototyping and experimentation
+```bash
+dotnet run
+```
 
-### 2. Dependency Injection (Production-Ready)
+The orchestration engine will create a workspace directory with a working .NET console app. That's it — **3 lines of code** to run a full multi-agent orchestration!
 
-For ASP.NET Core, Aspire apps, and testable services:
+## Understanding What Happened
+
+When you call `RunAsync()`, the library executes a **6-step pipeline**:
+
+1. **Plan** — The Planner agent analyzes your prompt and creates an execution plan
+2. **Parse** — The plan is broken into phases and tasks
+3. **Execute** — Coder and Designer agents generate files in parallel
+4. **Verify** — The Orchestrator runs `dotnet build` to validate the output
+5. **Review** — The BuildReviewer checks code quality (optional)
+6. **Report** — A summary is returned with workspace path and task results
+
+If the build fails, the **Fixer** agent automatically analyzes errors and corrects the code (up to 3 attempts by default).
+
+## Adding Event Streaming
+
+To see what's happening in real-time, listen to the event stream:
+
+```csharp
+using ElBruno.AgentsOrchestration.Core.Orchestration;
+using ElBruno.AgentsOrchestration.Orchestration;
+
+var service = OrchestrationServiceFactory.Create();
+
+// Start reading events in the background
+var eventTask = Task.Run(async () =>
+{
+    await foreach (var evt in service.Events.Reader.ReadAllAsync())
+    {
+        var message = evt switch
+        {
+            OrchestrationStartedEvent => "🚀 Started",
+            PhaseStartedEvent phase => $"📌 Phase {phase.PhaseIndex}: {phase.PhaseName}",
+            AgentActivatedEvent agent => $"🤖 {agent.Role} working...",
+            FileCreatedEvent file => $"📄 Created: {Path.GetFileName(file.FilePath)}",
+            BuildValidationEvent build => build.Success ? "✅ Build passed" : "❌ Build failed",
+            OrchestrationCompletedEvent => "🏁 Complete",
+            _ => null
+        };
+        if (message is not null)
+            Console.WriteLine(message);
+    }
+});
+
+// Run orchestration
+var result = await service.RunAsync(
+    new OrchestrationRequest("Create a weather console app"),
+    CancellationToken.None
+);
+
+// Close the event channel and wait for the reader
+service.Events.Writer.TryComplete();
+await eventTask;
+
+Console.WriteLine($"\n✅ Done! Workspace: {result.WorkspacePath}");
+```
+
+Now you'll see real-time progress as agents activate, create files, and validate builds.
+
+## Saving and Viewing Output
+
+Each orchestration creates a timestamped workspace directory. List the generated files:
+
+```csharp
+var result = await service.RunAsync(
+    new OrchestrationRequest("Create a to-do API"),
+    CancellationToken.None
+);
+
+Console.WriteLine($"\n📁 Generated files in: {result.WorkspacePath}\n");
+
+var files = Directory.GetFiles(result.WorkspacePath, "*", SearchOption.AllDirectories)
+    .Select(f => Path.GetRelativePath(result.WorkspacePath, f))
+    .OrderBy(f => f);
+
+foreach (var file in files)
+{
+    Console.WriteLine($"  📄 {file}");
+}
+```
+
+## Running Generated Apps
+
+Show users how to run the generated application:
+
+```csharp
+var result = await service.RunAsync(
+    new OrchestrationRequest("Create a simple calculator console app"),
+    CancellationToken.None
+);
+
+// Find the .csproj file
+var projectFile = Directory.GetFiles(result.WorkspacePath, "*.csproj", SearchOption.TopDirectoryOnly)
+    .FirstOrDefault();
+
+if (projectFile is not null)
+{
+    Console.WriteLine($"\n📋 To run the generated app:\n");
+    Console.WriteLine($"  dotnet run --project \"{projectFile}\"\n");
+}
+```
+
+## Multi-Turn Conversations
+
+For interactive scenarios where users want to make iterative changes, use `ConversationManager`:
+
+```csharp
+using ElBruno.AgentsOrchestration.Agents;
+using ElBruno.AgentsOrchestration.Core.Orchestration;
+using ElBruno.AgentsOrchestration.Orchestration;
+using ElBruno.AgentsOrchestration.Workspace;
+
+// Initialize components
+var instructions = InstructionLoader.LoadInstructions();
+var store = new AgentConfigurationStore(instructions);
+var client = new TemplateAgentClient();
+var factory = new AgentFactory(store, client);
+var workspaceManager = new WorkspaceManager("./workspaces");
+var conversationManager = new ConversationManager();
+
+// First turn - create initial app
+var workspace1 = workspaceManager.CreateWorkspace("Create a weather app");
+var session = conversationManager.CreateSession(workspace1);
+
+var service = new OrchestrationService(factory, workspaceManager);
+var result1 = await service.RunAsync(
+    new OrchestrationRequest("Create a weather console app for London"),
+    CancellationToken.None
+);
+
+// Record the turn
+session = conversationManager.RecordTurn(session.SessionId, 
+    "Create a weather console app for London", 
+    result1);
+
+// Second turn - add features with context
+var contextPrompt = session.BuildContextPrompt("Add Tokyo and New York to the cities");
+var result2 = await service.RunAsync(
+    new OrchestrationRequest(contextPrompt),
+    CancellationToken.None
+);
+
+Console.WriteLine($"Session has {session.History.Count} turns");
+```
+
+The `ConversationManager` tracks conversation history and builds context-aware prompts so agents can make incremental changes.
+
+## Launching Apps Programmatically
+
+The `AppRunner` class lets you launch generated apps as background processes and stream their output:
+
+```csharp
+using ElBruno.AgentsOrchestration.Workspace;
+
+var result = await service.RunAsync(
+    new OrchestrationRequest("Create a web server on port 5000"),
+    CancellationToken.None
+);
+
+// Launch the app
+var appRunner = new AppRunner();
+appRunner.OnLogReceived += line => Console.WriteLine($"[App] {line}");
+
+if (await appRunner.LaunchAsync(result.WorkspacePath, CancellationToken.None))
+{
+    Console.WriteLine("✅ App is running. Press Enter to stop...");
+    Console.ReadLine();
+    await appRunner.StopAsync();
+}
+```
+
+This is perfect for web servers, long-running services, or any app that needs to be monitored.
+
+## Visualizing Agent Flows
+
+For debugging and understanding agent interactions, use the `AgentCallGraph` to visualize the orchestration flow:
+
+```csharp
+using ElBruno.AgentsOrchestration.Views;
+
+var callGraph = new AgentCallGraph();
+var service = OrchestrationServiceFactory.Create();
+
+// Track events
+var eventTask = Task.Run(async () =>
+{
+    await foreach (var evt in service.Events.Reader.ReadAllAsync())
+    {
+        // Record agent calls
+        if (evt is AgentActivatedEvent active)
+        {
+            callGraph.RecordCall(
+                AgentRole.Orchestrator, 
+                active.Role, 
+                active.TaskDescription, 
+                DateTimeOffset.UtcNow
+            );
+        }
+    }
+});
+
+var result = await service.RunAsync(
+    new OrchestrationRequest("Create a Blazor recipe app"),
+    CancellationToken.None
+);
+
+service.Events.Writer.TryComplete();
+await eventTask;
+
+// Display the flow
+Console.WriteLine("\n📊 Agent Interaction Flow:");
+Console.WriteLine(callGraph.ToAsciiFlow());
+```
+
+This produces an ASCII diagram showing which agents were called, in what order, and for what tasks.
+
+## Customizing Configuration
+
+Configure workspace location, fix attempts, and more:
+
+```csharp
+var service = OrchestrationServiceFactory.Create(options =>
+{
+    options.WorkspaceRoot = "./my-workspaces";     // Custom workspace directory
+    options.MaxFixAttempts = 5;                     // More fix retries
+});
+```
+
+Or customize agent instructions:
+
+```csharp
+var customInstructions = new Dictionary<AgentRole, string>
+{
+    [AgentRole.Coder] = "Write C# code using minimal APIs and record types.",
+    [AgentRole.Designer] = "Use Tailwind CSS for all styling."
+};
+
+var service = OrchestrationServiceFactory.Create(options =>
+{
+    options.CustomInstructions = customInstructions;
+});
+```
+
+## Using Dependency Injection
+
+For ASP.NET Core, Blazor, or .NET Aspire applications, use the `AddOrchestration()` extension method:
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
 
-// In Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+// Register orchestration services
 builder.Services.AddOrchestration(options =>
 {
-    options.WorkspaceRoot = "custom-path";
-    options.MaxFixAttempts = 5;
+    options.WorkspaceRoot = "./workspaces";
+    options.MaxFixAttempts = 3;
 });
 
-// Then inject
-public class MyController
+var app = builder.Build();
+
+// Use in a minimal API endpoint
+app.MapPost("/orchestrate", async (
+    string prompt, 
+    OrchestrationService service,
+    CancellationToken ct) =>
+{
+    var result = await service.RunAsync(
+        new OrchestrationRequest(prompt), 
+        ct
+    );
+    return Results.Ok(result);
+});
+
+app.Run();
+```
+
+Or inject into controllers:
+
+```csharp
+public class OrchestrationController : ControllerBase
 {
     private readonly OrchestrationService _service;
     
-    public MyController(OrchestrationService service)
+    public OrchestrationController(OrchestrationService service)
     {
         _service = service;
+    }
+    
+    [HttpPost("run")]
+    public async Task<IActionResult> Run([FromBody] string prompt)
+    {
+        var result = await _service.RunAsync(
+            new OrchestrationRequest(prompt),
+            HttpContext.RequestAborted
+        );
+        return Ok(result);
     }
 }
 ```
 
-**When to use:**
+### Service Lifetimes
 
-- ASP.NET Core applications
-- .NET Aspire projects
-- Unit testing with mocked dependencies
-- Production services requiring lifetime management
+The `AddOrchestration()` method registers services with appropriate lifetimes:
 
-Both approaches provide the same functionality — choose based on your project's needs.
+- **Singleton**: `AgentConfigurationStore`, `IAgentClient`, `AgentFactory` — shared across all requests
+- **Scoped**: `OrchestrationService`, `IWorkspace` — new instance per HTTP request or scope
 
-## 1. Choose Your Sample
+This ensures workspace isolation and proper resource management.
 
-### ConsoleSimple — Minimal Demo (Recommended for First Try)
+## Persisting Sessions
 
-The simplest example showing the basic 6-step flow:
-
-```bash
-dotnet run --project samples/ConsoleSimple
-```
-
-This demonstrates:
-
-- **Simplified 1-line initialization** using the factory method
-- Running a single orchestration request
-- Monitoring events in real time
-- Viewing generated files
-- Getting the run command for the generated app
-
-Perfect for understanding the core concepts without extra complexity. Uses the new simplified API:
+For long-running conversations, save and resume sessions:
 
 ```csharp
-var service = OrchestrationServiceFactory.Create();
-```
+using ElBruno.AgentsOrchestration.Core.Orchestration;
 
-### ConsoleCompleteChat — Interactive Multi-Turn
+var sessionPersistence = new SessionPersistence("./sessions");
 
-For a full interactive experience with conversation memory:
+// After orchestration, save the session
+await sessionPersistence.SaveSessionAsync(session);
 
-```bash
-dotnet run --project samples/ConsoleCompleteChat
-```
+// Later, list and resume
+var savedFiles = sessionPersistence.ListSavedSessionFiles();
+var session = await sessionPersistence.LoadSessionAsync(savedFiles[0]);
 
-This demonstrates:
+Console.WriteLine($"Resumed session: {session.SessionId}");
+Console.WriteLine($"Turns: {session.History.Count}");
 
-- Multi-turn conversations with context preservation
-- Session management
-- App launching from the console
-- Copying run commands to run generated apps
-- Error handling and recovery
-
-### AspireApp — Full-Featured Dashboard
-
-For a complete, production-grade example with Blazor UI and REST API:
-
-```bash
-# Build and launch everything
-dotnet run --project samples/AspireApp/AppHost
-```
-
-Aspire will launch:
-
-- **Aspire Dashboard** — service health, logs, traces
-- **Blazor Web Dashboard** — interactive UI with agent graph visualization
-- **REST API** — programmatic orchestration control
-
-Click on the **dashboard** resource in the Aspire dashboard to open the Blazor UI.
-
-## 2. Enter a Prompt
-
-### Console App
-
-The console will prompt you:
-
-```
-Enter your request (or press Enter for default):
-```
-
-Type a project description or press Enter to use the default (a simple .NET console app).
-
-### Aspire Dashboard
-
-Type a project description into the **chat input** on the left side and press Enter or click Send.
-
-## 3. Watch It Work
-
-### Real-Time Events
-
-Both samples stream events as the agents coordinate:
-
-- **Initialization** — Planner receives the prompt and creates a plan
-- **Execution** — Coder and Designer implement the plan in parallel
-- **Validation** — Orchestrator runs `dotnet build` to validate generated code
-- **Self-Healing** — If build fails, Fixer analyzes and corrects errors (up to 3 retries)
-- **Completion** — Final summary and list of generated files
-
-### Console App Output
-
-The console shows emoji-prefixed events:
-
-```
-🚀 Started: Create a .NET console application...
-📌 Phase 1: Project Setup
-🤖 Coder: Create project file
-📄 File: project.csproj
-✅ Coder completed
-🔨 Build succeeded
-🏁 Orchestration completed
-
-Files created in: C:\Temp\orchestration-abc123
-Generated files:
-  - project.csproj
-  - Program.cs
-```
-
-### Aspire Dashboard
-
-Monitor progress through:
-
-- **Agent Graph** — 5 nodes with pulsing animations as agents activate
-- **Activity Feed** — scrollable timestamped log
-- **Workspace Viewer** — expanding file tree of generated output
-- **App Controls** — Launch or stop the generated application
-
-### Build Validation & Self-Healing
-
-After the Coder generates files, the Orchestrator automatically runs `dotnet build` to validate the output. If the build fails:
-
-1. The **Fixer** agent (🔧) receives the build errors and failing source code
-2. It produces corrected files with minimal changes
-3. The build is retried automatically (up to 3 attempts by default)
-4. All fix attempts appear in the Activity Feed in real time
-
-### Launching Generated Apps
-
-Once a build succeeds, a **🚀 Launch App** button becomes available. Click it to run the generated app as a background process. Stdout/stderr output streams directly into the Activity Feed. Click **⏹ Stop App** to shut it down.
-
-### Conversation Memory
-
-The dashboard remembers your conversation. After the first run completes, send a follow-up message to modify the generated project — the agents receive the full conversation context so they can make incremental changes without regenerating everything.
-
-## 3. Sample Prompts
-
-These prompts demonstrate the range of projects the agents can tackle. Paste any of them into the prompt input to try them out.
-
-### Blazor Web App
-
-```
-Create a Blazor Server app that manages cooking recipes. Include a Recipe model
-with name, ingredients, and instructions. Add pages to list all recipes, view
-details, and create or edit a recipe. Use Bootstrap for styling.
-```
-
-**What to expect:** The Planner breaks this into phases (data model → service → pages → styling). The Coder creates `.cs` and `.razor` files while the Designer produces CSS and layout tweaks. Output appears in the Workspace Viewer under a timestamped directory.
-
-### Static Landing Page
-
-```
-Build a responsive landing page for a SaaS product called "TaskFlow". Include a
-hero section with a call-to-action button, a features grid with three cards, a
-pricing table with Free, Pro, and Enterprise tiers, and a footer with social links.
-Use plain HTML and CSS only.
-```
-
-**What to expect:** Mostly Designer-driven. The Coder generates the HTML structure and the Designer creates the CSS with responsive breakpoints.
-
-### REST API
-
-```
-Create a minimal ASP.NET Core Web API for a to-do list. Include endpoints to
-list, create, update, and delete to-do items. Store items in-memory using a
-ConcurrentDictionary. Return JSON with proper HTTP status codes.
-```
-
-**What to expect:** Primarily Coder output — a `Program.cs` with mapped endpoints and a `TodoItem` record. The Designer may add an `index.html` with basic styling for API documentation.
-
-### Console Utility
-
-```
-Build a .NET console app that reads a CSV file, groups rows by a user-specified
-column, and prints a summary table with counts per group. Use Spectre.Console for
-the table output.
-```
-
-**What to expect:** A single-phase, Coder-focused run producing a `Program.cs` and supporting model classes.
-
-### Multi-Turn: Build Then Iterate
-
-These prompts show how conversation memory lets you refine a project across multiple turns.
-
-**Turn 1 — scaffold:**
-
-```
-Create a Blazor Server dashboard that shows real-time weather for three cities
-(London, Tokyo, New York). Use a WeatherService that returns random temperatures,
-a card per city, and auto-refresh every 5 seconds with a Timer.
-```
-
-**Turn 2 — add a feature:**
-
-```
-Add a search box at the top so users can add more cities. Persist the city list
-in localStorage via JS interop.
-```
-
-**Turn 3 — restyle:**
-
-```
-Switch to a dark theme. Use CSS variables for all colors and add subtle hover
-animations on the city cards.
-```
-
-**What to expect:** Each turn builds on the previous workspace. The agents see the full conversation and make targeted changes rather than regenerating from scratch.
-
-### Full-Stack: API + UI + Database Schema
-
-```
-Build a .NET solution with two projects. First, an ASP.NET Core minimal API
-("InventoryApi") with CRUD endpoints for products (Id, Name, Sku, Price,
-Quantity). Use Entity Framework Core with an in-memory database. Second, a
-Blazor Server app ("InventoryDashboard") that consumes the API with HttpClient,
-displays products in a searchable DataGrid, and has forms for add/edit. Share
-a "Contracts" class library between both projects for DTOs.
-```
-
-**What to expect:** The Planner creates a multi-phase plan spanning three projects. The Coder generates the API, shared contracts, and Blazor client. The Designer styles the DataGrid and forms.
-
-## 4. Customize Agents
-
-Navigate to **Settings** (via the sidebar) to change each agent's configuration:
-
-- **Model** — switch between LLMs (e.g., `gpt-5.3-codex`, `claude-sonnet-4.5`)
-- **Instructions** — edit the system prompt that guides each agent's behavior
-- **Reset** — revert an agent's instructions to the defaults from `Core/Instructions/*.md`
-
-Changes take effect on the next orchestration run.
-
-## 5. Inspect Generated Output
-
-Each run creates a timestamped workspace directory under the configured root path (default: `workspaces/`). You can browse files in the **Workspace Viewer** or open them directly from disk:
-
-```
-workspaces/
-  20260214153012-create-a-blazor-server-app/
-    src/Generated/App.cs
-    wwwroot/generated.css
+// Export as markdown for documentation
+await sessionPersistence.SaveAsMarkdownAsync(session, "conversation.md");
 ```
 
 ## Next Steps
 
-- Follow [Using the Libraries](using-the-libraries.md) to learn how to use the NuGet packages in your own projects
-- Read the full [Architecture](architecture.md) document for system design details
-- Review the [README](../README.md) for project structure and API reference
-- Explore the orchestration plan in [docs/plans/orchestration-plan.md](plans/orchestration-plan.md)
-- Look at the agent instructions in `src/AgentsOrchestration.Core/Instructions/` to understand how each agent is guided
-- Use the [REST API](../README.md#rest-api) endpoints for programmatic access to agent configuration and orchestration
+Now that you understand the basics and advanced features, explore:
+
+- **[Samples Overview](samples-overview.md)** — See working examples: ConsoleSimple, ConsoleCompleteChat, ConsoleFlowTraces, and AspireApp
+- **[Using the Libraries](using-the-libraries.md)** — Deep dive into the three NuGet packages and integration patterns
+- **[Architecture](architecture.md)** — Understand the 6-step pipeline and agent coordination
+- **[Event Streaming](event-streaming.md)** — Complete reference for all 18+ event types
+- **[Library Packages](library-packages.md)** — Package structure and versioning
+- **[README](../README.md)** — Project overview and API reference
 
 ---
 
 ## 🎓 Want to Learn More?
 
-Building AI orchestration systems is exciting! If you want to dive deeper into agent architecture, checkout my content:
+Building AI orchestration systems is exciting! If you want to dive deeper into agent architecture, check out my content:
 
 - **📝 [Detailed Blog Posts](https://elbruno.com)** — Technical deep-dives on orchestration patterns
 - **▶️ [Video Tutorials](https://www.youtube.com/elbruno)** — Watch me build and explain the system live

@@ -100,6 +100,15 @@ var service = OrchestrationServiceFactory.Create(options =>
 });
 ```
 
+**OrchestrationOptions properties:**
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `WorkspaceRoot` | `string` | temp directory | Root path for workspace creation |
+| `MaxFixAttempts` | `int` | `3` | Number of self-healing attempts on build failure |
+| `CustomClient` | `IAgentClient?` | `null` | Custom LLM client (uses `TemplateAgentClient` if null) |
+| `CustomInstructions` | `IReadOnlyDictionary<AgentRole, string>?` | `null` | Custom agent instructions (loads from files/defaults if null) |
+
 **That's all you need!** The factory automatically:
 
 - Loads agent instructions (from files, environment, or built-in defaults)
@@ -575,6 +584,183 @@ builder.Services.AddSingleton<IAgentClient, OpenAiAgentClient>();
 
 ---
 
+## Advanced Features in Core
+
+The **Core** package includes several powerful features for building production-ready orchestration systems.
+
+### Multi-Turn Conversations with ConversationManager
+
+Enable context-aware conversations where each prompt builds on previous turns:
+
+```csharp
+using ElBruno.AgentsOrchestration.Core.Orchestration;
+
+var conversationManager = new ConversationManager();
+
+// Create a session
+var workspace = workspaceManager.CreateWorkspace("Build a weather app");
+var session = conversationManager.CreateSession(workspace);
+
+// First turn
+var result1 = await service.RunAsync(
+    new OrchestrationRequest("Create a weather console app for London"),
+    CancellationToken.None
+);
+
+// Record the turn
+session = conversationManager.RecordTurn(session.SessionId, 
+    "Create a weather console app for London", 
+    result1);
+
+// Second turn - add features with context
+var contextPrompt = session.BuildContextPrompt("Add Tokyo and New York");
+var result2 = await service.RunAsync(
+    new OrchestrationRequest(contextPrompt),
+    CancellationToken.None
+);
+
+Console.WriteLine($"Session has {session.History.Count} turns");
+Console.WriteLine($"Estimated tokens: ~{session.EstimateTokenCount()}");
+```
+
+**Key methods:**
+
+- `CreateSession(workspacePath)` — Start a new conversation
+- `RecordTurn(sessionId, prompt, result)` — Add a turn to the history
+- `GetSession(sessionId)` — Retrieve an existing session
+- `ListSessions()` — Get all active sessions
+- `ClearSession(sessionId)` — Remove a session from memory
+- `session.BuildContextPrompt(newPrompt)` — Create a context-aware prompt
+
+### Persisting Sessions with SessionPersistence
+
+Save and restore conversation sessions across restarts:
+
+```csharp
+using ElBruno.AgentsOrchestration.Core.Orchestration;
+
+var sessionPersistence = new SessionPersistence("./sessions");
+
+// Save a session to disk
+await sessionPersistence.SaveSessionAsync(session);
+
+// List saved sessions
+var savedFiles = sessionPersistence.ListSavedSessionFiles();
+
+// Load a session
+var loadedSession = await sessionPersistence.LoadSessionAsync(savedFiles[0]);
+
+// Export as markdown for documentation
+await sessionPersistence.SaveAsMarkdownAsync(session, "conversation.md");
+```
+
+Sessions are saved as JSON files: `session_{sessionId}_{timestamp}.json`
+
+### Running Generated Apps with AppRunner
+
+Launch generated applications and stream their output:
+
+```csharp
+using ElBruno.AgentsOrchestration.Workspace;
+
+var appRunner = new AppRunner();
+
+// Subscribe to log events
+appRunner.OnLogReceived += line => Console.WriteLine($"[App] {line}");
+
+// Launch the app (finds .csproj and runs it)
+if (await appRunner.LaunchAsync(workspacePath, CancellationToken.None))
+{
+    Console.WriteLine("✅ App is running. Press Enter to stop...");
+    Console.ReadLine();
+    await appRunner.StopAsync();
+}
+
+appRunner.Dispose();
+```
+
+**Key features:**
+
+- Automatically finds `.csproj` files
+- Runs `dotnet run` as a background process
+- Streams stdout/stderr via `OnLogReceived` event
+- Supports graceful shutdown with `StopAsync()`
+
+### Using GitHub Copilot as Agent Client
+
+Integrate with GitHub Copilot's language models:
+
+```csharp
+using Microsoft.Copilot.Client;
+
+// Register Copilot client first
+builder.Services.AddSingleton<CopilotClient>(sp =>
+{
+    var client = new CopilotClient();
+    // Configure as needed
+    return client;
+});
+
+// Register orchestration with Copilot
+builder.Services.AddOrchestrationWithCopilot(options =>
+{
+    options.WorkspaceRoot = "./workspaces";
+});
+```
+
+### Custom Agent Client Registration
+
+Register a custom `IAgentClient` with DI:
+
+```csharp
+// Generic method
+builder.Services.AddOrchestration<MyCustomAgentClient>(options =>
+{
+    options.WorkspaceRoot = "./workspaces";
+});
+
+// Or replace manually
+builder.Services.AddOrchestration();
+builder.Services.Replace(
+    ServiceDescriptor.Singleton<IAgentClient, MyCustomAgentClient>()
+);
+```
+
+### Visualizing Agent Flows
+
+Track agent interactions with `AgentCallGraph` (from **Views** package):
+
+```csharp
+using ElBruno.AgentsOrchestration.Views;
+
+var callGraph = new AgentCallGraph();
+
+await foreach (var evt in service.Events.Reader.ReadAllAsync())
+{
+    if (evt is AgentActivatedEvent active)
+    {
+        callGraph.RecordCall(
+            AgentRole.Orchestrator,
+            active.Role,
+            active.TaskDescription,
+            DateTimeOffset.UtcNow
+        );
+    }
+}
+
+Console.WriteLine(callGraph.ToAsciiFlow());
+```
+
+**Output:**
+
+```
+Orchestrator → Planner: Create execution plan
+Orchestrator → Coder: Generate Program.cs
+Orchestrator → Designer: Create styles.css
+```
+
+---
+
 ## Reference: Key Types
 
 ### AgentsOrchestration.Abstractions
@@ -608,8 +794,22 @@ builder.Services.AddSingleton<IAgentClient, OpenAiAgentClient>();
 | Type | Description |
 |------|-------------|
 | `TemplateAgentClient` | Deterministic `IAgentClient` — returns template output without an LLM |
+| `CopilotAgentClient` | `IAgentClient` implementation using GitHub Copilot SDK |
 | `WorkspaceManager` | `IWorkspace` implementation with timestamped directories |
 | `AppRunner` | Launches generated apps as background `dotnet run` processes |
+| `ConversationManager` | Manages multi-turn conversation sessions with context building |
+| `ConversationSession` | Immutable record tracking conversation history and workspace |
+| `SessionPersistence` | Saves/loads conversation sessions to/from JSON files |
+| `OrchestrationServiceFactory` | Static factory for simplified `OrchestrationService` creation |
+| `OrchestrationOptions` | Configuration record for workspace root, fix attempts, custom client/instructions |
+| `ServiceCollectionExtensions` | `AddOrchestration()`, `AddOrchestration<TClient>()`, `AddOrchestrationWithCopilot()` |
+
+### AgentsOrchestration.Views
+
+| Type | Description |
+|------|-------------|
+| `AgentCallGraph` | Tracks and visualizes agent interactions |
+| `AgentCallGraphExtensions` | Extension methods for ASCII flow diagram generation |
 
 ---
 
