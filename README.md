@@ -1,4 +1,4 @@
-# ElBruno.AgentsOrchestration — Multi-Agent Orchestration Libraries
+# El Bruno AgentsOrchestration — Multi-Agent Orchestration Libraries
 
 [![NuGet](https://img.shields.io/nuget/v/ElBruno.AgentsOrchestration.Core.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ElBruno.AgentsOrchestration.Core.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
@@ -7,7 +7,9 @@
 [![GitHub stars](https://img.shields.io/github/stars/elbruno/elbruno.agentsorchestration?style=social)](https://github.com/elbruno/elbruno.agentsorchestration)
 [![Twitter Follow](https://img.shields.io/twitter/follow/elbruno?style=social)](https://twitter.com/elbruno)
 
-A **.NET 10** library suite inspired by [Burke Holland's "Ultralight Orchestration" video](https://www.youtube.com/watch?v=-BhfcPseWFQ&t=586s), implementing the pattern in production-ready C#. Build software automatically using a coordinated team of **11 specialized AI agents**—including **Orchestrator**, **Planner**, **Coder**, **Designer**, **Researcher**, **Fixer**, **BuildReviewer**, **SecurityExpert**, **TestingExpert**, **DocumentationExpert**, and **SoftwareArchitect**—that work together to execute your prompts.
+A **.NET 10** library suite inspired by [Burke Holland's "Ultralight Orchestration" video](https://www.youtube.com/watch?v=-BhfcPseWFQ), implementing the pattern in production-ready C#, using **Microsoft Agent Framework** and **GitHub Copilot SDK** to create a powerful multi-agent orchestration system.
+
+Build software automatically using a coordinated team of **11 specialized AI agents**—including **Orchestrator**, **Planner**, **Coder**, **Designer**, **Researcher**, **Fixer**, **BuildReviewer**, **SecurityExpert**, **TestingExpert**, **DocumentationExpert**, and **SoftwareArchitect**—that work together to execute your prompts.
 
 ## Overview
 
