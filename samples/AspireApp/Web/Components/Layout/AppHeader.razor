@@ -1,0 +1,100 @@
+<div class="app-header d-flex align-items-center justify-content-between px-4 py-2 border-bottom bg-secondary">
+    <div class="d-flex align-items-center gap-3">
+        <a class="navbar-brand text-truncate fw-bold me-4" href="">
+            <i class="bi bi-cpu me-2"></i>Agents Orchestration
+        </a>
+        <nav class="d-flex gap-2">
+            <NavLink class="nav-link px-3 py-2 rounded" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-house-door-fill me-1"></i>Home
+            </NavLink>
+            <NavLink class="nav-link px-3 py-2 rounded" href="settings">
+                <i class="bi bi-gear-fill me-1"></i>Settings
+            </NavLink>
+        </nav>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <ThemeSelector />
+        <a href="https://github.com/elbruno/elbruno.agentsorchestration/" target="_blank"
+               class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2" title="View on GitHub">
+            <i class="bi bi-github"></i>
+            <span>About</span>
+        </a>
+    </div>
+</div>
+
+<style>
+    .app-header {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background-color: var(--bg-secondary) !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        min-height: 56px;
+        box-shadow: var(--shadow);
+    }
+
+    .navbar-brand {
+        color: var(--text-primary) !important;
+        text-decoration: none;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+
+    .navbar-brand:hover {
+        color: var(--accent-blue) !important;
+    }
+
+    .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all var(--transition);
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+
+    .nav-link:hover {
+        color: var(--text-primary);
+        background-color: var(--bg-tertiary);
+    }
+
+    .nav-link.active {
+        color: var(--accent-blue);
+        background-color: rgba(88, 166, 255, 0.1);
+    }
+
+    .btn-outline-secondary {
+        border-color: var(--border-color);
+        color: var(--text-secondary);
+    }
+
+    .btn-outline-secondary:hover {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--text-secondary);
+    }
+
+    @@media (max-width: 768px) {
+        .app-header {
+            flex-direction: column;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .navbar-brand {
+            font-size: 1rem;
+        }
+
+        .nav-link span,
+        .btn span {
+            display: none;
+        }
+    }
+</style>
+
+@code {
+}

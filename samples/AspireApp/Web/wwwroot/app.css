@@ -486,7 +486,7 @@ h1 {
 .dashboard-layout {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 4rem); /* Adjust based on top-row height */
+    height: calc(100vh - 56px - 3rem); /* Header height (56px) + padding */
     gap: 1rem;
 }
 
