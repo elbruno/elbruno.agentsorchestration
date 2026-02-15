@@ -1,10 +1,20 @@
 @using ElBruno.AgentsOrchestration.Orchestration
 
 <div class="plan-viewer @(IsExpanded ? "expanded" : "collapsed")">
-    <div class="plan-header" @onclick="ToggleExpanded">
-        <span class="plan-icon">📋</span>
-        <span class="plan-title">Execution Plan</span>
-        <span class="plan-toggle">@(IsExpanded ? "▼" : "▶")</span>
+    <div class="plan-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;"
+             @onclick="ToggleExpanded">
+            <span class="plan-icon">📋</span>
+            <span class="plan-title">Execution Plan</span>
+            <span class="plan-toggle">@(IsExpanded ? "▼" : "▶")</span>
+        </div>
+        @if (Plan is not null)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="DownloadPlan" @onclick:stopPropagation="true"
+                    title="Download plan">
+                💾 Download
+            </button>
+        }
     </div>
     
     @if (IsExpanded && Plan is not null)
@@ -76,7 +86,9 @@
     [Parameter] public bool IsExecuting { get; set; } = false;
     [Parameter] public EventCallback OnApprove { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public bool InitiallyExpanded { get; set; } = true;
+    [Parameter] public bool InitiallyExpanded { get; set; } = false;
+    [Parameter] public string? PlanMarkdown { get; set; }
+    [Inject] private IJSRuntime? JS { get; set; }
 
     private bool IsExpanded { get; set; }
 
@@ -121,4 +133,12 @@
         "SoftwareArchitect" => "🏗️",
         _ => "🤖"
     };
+
+    private async Task DownloadPlan()
+    {
+        if (PlanMarkdown is null || JS is null) return;
+        
+        var fileName = $"execution-plan-{DateTime.Now:yyyyMMdd-HHmmss}.md";
+        await JS.InvokeVoidAsync("downloadTextFile", fileName, PlanMarkdown);
+    }
 }

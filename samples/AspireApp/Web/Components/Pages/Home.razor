@@ -38,7 +38,7 @@
                     <div class="plan-viewer-container">
                         <PlanViewer Plan="_currentPlan" CurrentPhaseIndex="_currentPhaseIndex"
                                     ShowActions="_planAwaitingApproval" IsExecuting="IsRunning && !_planAwaitingApproval"
-                                    OnApprove="ApprovePlan" OnCancel="RejectPlan" />
+                                    OnApprove="ApprovePlan" OnCancel="RejectPlan" PlanMarkdown="_currentPlanMarkdown" />
                         
                         @if (IsRunning && !_planAwaitingApproval && _currentPlan is not null)
                         {
@@ -185,15 +185,29 @@ new(StringComparer.OrdinalIgnoreCase)
         _lastService = service;
         _lastWorkspaceManager = scope.ServiceProvider.GetRequiredService<IWorkspace>() as WorkspaceManager;
 
-        // Set up plan approval callback
+        // Set up plan approval callback based on settings
+        var autoApprove = await GetAutoApproveSetting();
+        
         service.PlanApprovalCallback = async (plan, markdown) =>
         {
-            _planApprovalTcs = new TaskCompletionSource<bool>();
             _currentPlan = plan;
             _currentPlanMarkdown = markdown;
-            _planAwaitingApproval = true;
-            await InvokeAsync(StateHasChanged);
-            return await _planApprovalTcs.Task;
+            
+            if (autoApprove)
+            {
+                // Auto-approve but still show the plan
+                _planAwaitingApproval = false;
+                await InvokeAsync(StateHasChanged);
+                return true;
+            }
+            else
+            {
+                // Wait for user approval
+                _planApprovalTcs = new TaskCompletionSource<bool>();
+                _planAwaitingApproval = true;
+                await InvokeAsync(StateHasChanged);
+                return await _planApprovalTcs.Task;
+            }
         };
 
         // Build context from full conversation
@@ -551,6 +565,19 @@ new(StringComparer.OrdinalIgnoreCase)
         {
             var objRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("initSplitPane", objRef);
+        }
+    }
+
+    private async Task<bool> GetAutoApproveSetting()
+    {
+        try
+        {
+            var setting = await JS.InvokeAsync<string?>("localStorage.getItem", "autoApprovePlans");
+            return setting != "false"; // Default to true if not set
+        }
+        catch
+        {
+            return true; // Default to auto-approve
         }
     }
 }

@@ -1,4 +1,4 @@
-# ElBruno.AgentsOrchestration — Multi-Agent Orchestration Libraries
+# Agents Orchestration — Multi-Agent Orchestration Libraries
 
 [![NuGet](https://img.shields.io/nuget/v/ElBruno.AgentsOrchestration.Core.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ElBruno.AgentsOrchestration.Core.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
@@ -40,29 +40,6 @@ The libraries provide a production-ready orchestration engine with:
   - **[ConsoleCompleteChat](samples/ConsoleCompleteChat)** — Full interactive multi-turn chat
   - **[ConsoleFlowTraces](samples/ConsoleFlowTraces)** — Flow tracing and call graph visualization
   - **[AspireApp](samples/AspireApp)** — Production-grade Blazor dashboard with REST API
-
----
-
-## The 11 AI Agents
-
-### Core Pipeline Agents (6-Step Orchestration)
-
-1. **🗺️ Planner** — Analyzes requirements and creates implementation plans
-2. **🧭 Orchestrator** — Coordinates agent communication and task delegation
-3. **💻 Coder** — Generates application code and business logic
-4. **🎨 Designer** — Creates user interfaces and visual components
-5. **🔧 Fixer** — Detects and corrects build errors automatically
-6. **📊 BuildReviewer** — Analyzes code quality, performance, and best practices
-
-### Specialist Agents (Extended Capabilities)
-
-1. **🔎 Researcher** — Searches external documentation and web resources
-2. **🔒 SecurityExpert** — Validates security and identifies vulnerabilities
-3. **✅ TestingExpert** — Generates comprehensive test suites
-4. **📚 DocumentationExpert** — Creates API docs, READMEs, and guides
-5. **🏗️ SoftwareArchitect** — Validates architecture and enforces design patterns
-
-👉 **[See all agents](docs/agents.md)** for detailed responsibilities and use cases.
 
 ---
 
