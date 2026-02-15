@@ -1,0 +1,57 @@
+@using AgentsOrchestration.Web.Models
+@inject IJSRuntime JS
+
+<div class="console-feed-container">
+    <div class="panel-header" @onclick="Toggle">
+        <span>&#9654; Console</span>
+        <span class="panel-chevron @(Collapsed ? "" : "open")">&#9660;</span>
+    </div>
+    <div class="console-scroll-area @(Collapsed ? "collapsed" : "")" @ref="_feedContainer">
+        @foreach (var item in Items.OrderBy(i => i.Timestamp).TakeLast(200))
+        {
+            <div class="console-line">
+                <span class="console-timestamp">@item.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff")</span>
+                <span class="console-type type-@item.Type.ToLowerInvariant().Replace(' ', '-')">[@item.Type]</span>
+                <span class="console-message">@item.Message</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private ElementReference _feedContainer;
+    private int _lastCount;
+    private bool Collapsed;
+
+    [Parameter] public IReadOnlyCollection<ActivityItem> Items { get; set; } = [];
+
+    private async Task Toggle()
+    {
+        Collapsed = !Collapsed;
+        if (!Collapsed)
+        {
+            await ScrollToBottom();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Items.Count != _lastCount)
+        {
+            _lastCount = Items.Count;
+            if (!Collapsed)
+            {
+                await ScrollToBottom();
+            }
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("scrollToBottom", _feedContainer);
+        }
+        catch (JSDisconnectedException) { }
+    }
+}

@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ElBruno.AgentsOrchestration.Abstractions/ElBruno.AgentsOrchestration.Abstractions.csproj" />
+    <Project Path="src/ElBruno.AgentsOrchestration.Orchestration/ElBruno.AgentsOrchestration.Orchestration.csproj" />
+    <Project Path="src/ElBruno.AgentsOrchestration.Core/ElBruno.AgentsOrchestration.Core.csproj" />
+    <Project Path="src/ElBruno.AgentsOrchestration.Views/ElBruno.AgentsOrchestration.Views.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AgentsOrchestration.Core.Tests/AgentsOrchestration.Core.Tests.csproj" />
+    <Project Path="tests/AgentsOrchestration.Views.Tests/AgentsOrchestration.Views.Tests.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Folder Name="AspireApp/">
+      <Project Path="samples/AspireApp/ServiceDefaults/AgentsOrchestration.ServiceDefaults.csproj" />
+      <Project Path="samples/AspireApp/Web/AgentsOrchestration.Web.csproj" />
+      <Project Path="samples/AspireApp/Api/AgentsOrchestration.Api.csproj" />
+      <Project Path="samples/AspireApp/AppHost/AgentsOrchestration.AppHost.csproj" />
+    </Folder>
+    <Project Path="samples/ConsoleCompleteChat/ElBruno.AgentsOrchestration.Console.csproj" />
+    <Project Path="samples/ConsoleSimple/ConsoleSimple.csproj" />
+    <Project Path="samples/ConsoleFlowTraces/ConsoleFlowTraces.csproj" />
+  </Folder>
+</Solution>

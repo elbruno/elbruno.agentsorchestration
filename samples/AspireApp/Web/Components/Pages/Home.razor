@@ -1,0 +1,444 @@
+﻿@page "/"
+@using ElBruno.AgentsOrchestration.Orchestration
+@using ElBruno.AgentsOrchestration.Workspace
+@using ElBruno.AgentsOrchestration.Agents
+@using ElBruno.AgentsOrchestration.Views
+@using AgentsOrchestration.Web.Models
+@inject IServiceScopeFactory ScopeFactory
+@inject IJSRuntime JS
+
+<PageTitle>Orchestration Dashboard</PageTitle>
+
+<div class="dashboard-layout">
+    <div class="split-pane">
+        <section class="split-left" style="flex: @LeftFlex">
+            <PromptInput @bind-Prompt="Prompt" IsRunning="IsRunning" OnRun="RunAsync" OnCancel="CancelAsync"
+                         OnClear="ClearConversation" Messages="ChatMessages" />
+        </section>
+        <div class="split-handle" @onpointerdown="OnHandlePointerDown"></div>
+        <section class="split-right" style="flex: @RightFlex; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="d-flex border-bottom bg-light">
+                <button
+                    class="btn btn-sm @(ActiveTab == "graph" ? "btn-light fw-bold border-bottom-0" : "btn-link text-decoration-none text-secondary") rounded-0 px-3 py-2"
+                    @onclick="@(() => ActiveTab = "graph")">
+                    <i class="bi bi-diagram-3"></i> Org Chart
+                </button>
+                <button
+                    class="btn btn-sm @(ActiveTab == "flow" ? "btn-light fw-bold border-bottom-0" : "btn-link text-decoration-none text-secondary") rounded-0 px-3 py-2"
+                    @onclick="@(() => ActiveTab = "flow")">
+                    <i class="bi bi-list-nested"></i> Call Flow
+                </button>
+            </div>
+            
+            <div style="flex: 1; overflow: hidden; position: relative;">
+                @if (ActiveTab == "graph")
+                {
+                    <AgentGraph Nodes="AgentNodes" Connections="AgentConnections" />
+                }
+                else
+                {
+                    <div class="h-100 overflow-auto bg-light">
+                        <AgentFlow Graph="_callGraph" />
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    <section class="dashboard-bottom-section">
+        <div class="app-launch-controls">
+            <button class="btn btn-sm @(IsAppRunning ? "btn-outline-danger" : "btn-outline-success")"
+                    disabled="@(IsRunning || (!_buildSucceeded && !IsAppRunning))"
+                    @onclick="@(IsAppRunning? StopAppAsync : LaunchAppAsync)">
+                @(IsAppRunning ? "⏹ Stop App" : "🚀 Launch App")
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="CopyFileLocationAsync" title="Copy file location"
+                    disabled="@(!_buildSucceeded || IsRunning)">
+                <i class="bi bi-folder-symlink"></i> Copy Location
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="CopyRunCommandAsync" title="Copy run command"
+                    disabled="@(!_buildSucceeded || IsRunning)">
+                <i class="bi bi-terminal"></i> Copy Command
+            </button>
+            @if (IsAppRunning)
+            {
+                <span class="app-status-badge running">● Running</span>
+            }
+        </div>
+        <ActivityFeed Items="Activities" />
+    </section>
+</div>
+
+@code {
+    private bool IsRunning;
+    private bool IsAppRunning;
+    private bool _buildSucceeded;
+    private CancellationTokenSource? _runCts;
+    private OrchestrationService? _lastService;
+    private WorkspaceManager? _lastWorkspaceManager;
+    private AppRunner? _appRunner;
+    private string Prompt { get; set; } = string.Empty;
+    private string ActiveTab { get; set; } = "graph";
+    private AgentCallGraph _callGraph = new();
+    private List<ActivityItem> Activities { get; } = [];
+    private List<ChatMessage> ChatMessages { get; } = [];
+    private string? _lastBuildResult;
+    private List<AgentConnection> AgentConnections { get; } = [];
+    private List<AgentNodeState> AgentNodes { get; } =
+    [
+        new() { Name = "Orchestrator", Color = "#8b949e", Icon = "\U0001f3af" }
+    ];
+
+    private static readonly Dictionary<string, (string Color, string Icon)> AgentStyles =
+new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "Orchestrator", ("#8b949e", "\U0001f3af") },
+        { "Planner", ("#58a6ff", "\U0001f4cb") },
+        { "Coder", ("#3fb950", "\U0001f4bb") },
+        { "Designer", ("#f778ba", "\U0001f3a8") },
+        { "Researcher", ("#6610f2", "\U0001f50d") },
+        { "Fixer", ("#fd7e14", "\U0001f527") },
+        { "BuildReviewer", ("#20c997", "\U0001f9d0") }
+    };
+    
+    private async Task CopyFileLocationAsync()
+    {
+        if (_lastWorkspaceManager?.WorkspacePath is { } path)
+        {
+            var fullPath = Path.GetFullPath(path);
+            await JS.InvokeVoidAsync("copyToClipboard", fullPath);
+        }
+    }
+
+    private async Task CopyRunCommandAsync()
+    {
+        if (_lastWorkspaceManager?.WorkspacePath is { } path)
+        {
+            var csprojFiles = Directory.GetFiles(path, "*.csproj", SearchOption.AllDirectories);
+            if (csprojFiles.Length > 0)
+            {
+                var csprojPath = Path.GetFullPath(csprojFiles[0]);
+                await JS.InvokeVoidAsync("copyToClipboard", $"dotnet run --project \"{csprojPath}\"");
+            }
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Prompt)) return;
+
+        ChatMessages.Add(new ChatMessage("user", Prompt, DateTimeOffset.UtcNow));
+
+        var currentPrompt = Prompt;
+        Prompt = string.Empty;
+        IsRunning = true;
+        ResetStatuses();
+        _callGraph = new();
+        _lastBuildResult = null;
+        _buildSucceeded = false;
+        _runCts = new CancellationTokenSource();
+
+        using var scope = ScopeFactory.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<OrchestrationService>();
+        _lastService = service;
+        _lastWorkspaceManager = scope.ServiceProvider.GetRequiredService<WorkspaceManager>();
+
+        // Build context from full conversation
+        var contextPrompt = ChatMessages.Count > 1
+            ? $"Conversation so far:\n{string.Join("\n", ChatMessages.Select(m => $"[{m.Role}]: {m.Content}"))}\n\nLatest request: {currentPrompt}"
+            : currentPrompt;
+
+        try
+        {
+            var readEvents = Task.Run(async () =>
+            {
+                await foreach (var evt in service.Events.Reader.ReadAllAsync(_runCts.Token))
+                {
+                    ApplyEvent(evt);
+                }
+            }, _runCts.Token);
+
+            await service.RunAsync(new OrchestrationRequest(contextPrompt), _runCts.Token);
+            service.Events.Writer.TryComplete();
+            await readEvents;
+
+            var completionMsg = _lastBuildResult is not null
+                ? $"Orchestration completed. {_lastBuildResult}"
+                : "Orchestration completed successfully.";
+            ChatMessages.Add(new ChatMessage("assistant", completionMsg, DateTimeOffset.UtcNow));
+        }
+        catch (OperationCanceledException)
+        {
+            Activities.Add(new ActivityItem(DateTimeOffset.UtcNow, "Cancelled", "Orchestration cancelled"));
+            ChatMessages.Add(new ChatMessage("assistant", "Orchestration was cancelled.", DateTimeOffset.UtcNow));
+        }
+        finally
+        {
+            IsRunning = false;
+            DeactivateAllConnections();
+            _runCts.Dispose();
+            _runCts = null;
+        }
+    }
+
+    private Task CancelAsync()
+    {
+        _runCts?.Cancel();
+        return Task.CompletedTask;
+    }
+
+    private void ClearConversation()
+    {
+        ChatMessages.Clear();
+        Activities.Clear();
+        _buildSucceeded = false;
+        _callGraph = new();
+        ResetStatuses();
+        DeactivateAllConnections();
+    }
+
+    private async Task LaunchAppAsync()
+    {
+        if (_lastWorkspaceManager is null) return;
+        try
+        {
+            if (_appRunner is not null)
+            {
+                await _appRunner.StopAsync();
+                _appRunner.Dispose();
+                _appRunner = null;
+            }
+            _appRunner = new AppRunner();
+            _appRunner.OnLogReceived += line =>
+            {
+                var logEvt = new AppLogEvent(DateTimeOffset.UtcNow, line);
+                ApplyEvent(logEvt);
+            };
+            var launched = await _appRunner.LaunchAsync(_lastWorkspaceManager.WorkspacePath, CancellationToken.None);
+            IsAppRunning = launched && _appRunner.IsRunning;
+            if (IsAppRunning)
+            {
+                ApplyEvent(new AppLaunchedEvent(DateTimeOffset.UtcNow, _lastWorkspaceManager.WorkspacePath));
+            }
+        }
+        catch (Exception ex)
+        {
+            Activities.Add(new ActivityItem(DateTimeOffset.UtcNow, "Error", $"Failed to launch app: {ex.Message}"));
+        }
+    }
+
+    private async Task StopAppAsync()
+    {
+        if (_appRunner is null) return;
+        try
+        {
+            await _appRunner.StopAsync();
+            _appRunner.Dispose();
+            _appRunner = null;
+            IsAppRunning = false;
+            ApplyEvent(new AppStoppedEvent(DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            Activities.Add(new ActivityItem(DateTimeOffset.UtcNow, "Error", $"Failed to stop app: {ex.Message}"));
+        }
+    }
+
+    private void ApplyEvent(OrchestrationEvent evt)
+    {
+        TrackAgentCall(evt);
+        var type = evt.GetType().Name;
+        var message = evt switch
+        {
+            OrchestrationStartedEvent started => $"Started: {started.Prompt}",
+            AgentActivatedEvent activated => $"{activated.Role} active: {activated.TaskDescription}",
+            AgentCompletedEvent completed => $"{completed.Role} completed",
+            FileCreatedEvent file => $"File updated: {file.FilePath}",
+            BuildValidationEvent build => build.Success ? "\u2705 Build succeeded" : $"\u274c Build failed: {build.Output}",
+            FixAttemptStartedEvent fixStart => $"\U0001f527 Fix attempt {fixStart.Attempt} started",
+            FixAttemptCompletedEvent fixEnd => fixEnd.Success
+                ? $"\u2705 Fix attempt {fixEnd.Attempt} succeeded"
+                : $"\u274c Fix attempt {fixEnd.Attempt} failed",
+            ResearchRequestedEvent research => $"\U0001f50d {research.RequestingAgent} requested research: {research.Query}",
+            ResearchCompletedEvent researchDone => $"\u2705 Research completed: {researchDone.SourcesFound} sources in {researchDone.Duration.TotalSeconds:F1}s",
+            AgentCommunicationEvent comm => $"\U0001f504 {comm.FromAgent} \u2192 {comm.ToAgent}: {comm.Summary}",
+            AppLaunchedEvent launched => $"\U0001f680 App launched: {launched.WorkspacePath}",
+            AppStoppedEvent => "\u23f9 App stopped",
+            AppLogEvent log => $"[app] {log.LogLine}",
+            OrchestrationCompletedEvent done => done.FinalResult.Summary,
+            OrchestrationErrorEvent error => $"Error: {error.Error}",
+            _ => type
+        };
+
+        Activities.Add(new ActivityItem(evt.Timestamp, type, message));
+
+        if (evt is AgentActivatedEvent activated2)
+        {
+            SetNodeStatus(activated2.Role.ToString(), "active", message);
+            ActivateConnection(activated2.Role.ToString());
+        }
+        else if (evt is AgentCompletedEvent completed2)
+        {
+            SetNodeStatus(completed2.Role.ToString(), "complete", message);
+            DeactivateConnection(completed2.Role.ToString());
+        }
+        else if (evt is OrchestrationCompletedEvent || evt is OrchestrationErrorEvent)
+        {
+            IsRunning = false;
+            DeactivateAllConnections();
+        }
+        else if (evt is BuildValidationEvent buildEvt)
+        {
+            _buildSucceeded = buildEvt.Success;
+            _lastBuildResult = buildEvt.Success
+                ? "\u2705 Build validation passed."
+                : $"\u274c Build validation failed:\n{buildEvt.Output}";
+        }
+        else if (evt is AgentCommunicationEvent comm)
+        {
+            SetNodeStatus(comm.FromAgent.ToString(), "active", $"Sending to {comm.ToAgent}");
+            SetNodeStatus(comm.ToAgent.ToString(), "active", $"Receiving from {comm.FromAgent}");
+            EnsureConnection(comm.FromAgent.ToString(), comm.ToAgent.ToString());
+            ActivateConnection(comm.ToAgent.ToString());
+        }
+        else if (evt is AppLaunchedEvent)
+        {
+            IsAppRunning = true;
+        }
+        else if (evt is AppStoppedEvent)
+        {
+            IsAppRunning = false;
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void TrackAgentCall(OrchestrationEvent evt)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (evt is AgentActivatedEvent active)
+        {
+            _callGraph.RecordCall(AgentRole.Orchestrator, active.Role, active.TaskDescription, now);
+        }
+        else if (evt is AgentCommunicationEvent comm)
+        {
+            _callGraph.RecordCall(comm.FromAgent, comm.ToAgent, comm.Summary, now);
+        }
+    }
+
+    private void SetNodeStatus(string roleName, string status, string message)
+    {
+        var node = AgentNodes.FirstOrDefault(n => n.Name.Equals(roleName, StringComparison.OrdinalIgnoreCase));
+        if (node == null)
+        {
+            if (AgentStyles.TryGetValue(roleName, out var style))
+            {
+                node = new AgentNodeState { Name = roleName, Color = style.Color, Icon = style.Icon };
+            }
+            else
+            {
+                node = new AgentNodeState { Name = roleName, Color = "#6c757d", Icon = "\U0001f916" };
+            }
+            AgentNodes.Add(node);
+
+            // Ensure connection from Orchestrator exists (default assumption)
+            if (!roleName.Equals("Orchestrator", StringComparison.OrdinalIgnoreCase))
+            {
+                EnsureConnection("Orchestrator", roleName);
+            }
+        }
+
+        node.Status = status;
+        node.Instruction = message.Length > 90 ? $"{message[..90]}..." : message;
+    }
+
+    private void EnsureConnection(string from, string to)
+    {
+        if (from.Equals(to, StringComparison.OrdinalIgnoreCase)) return;
+
+        var exists = AgentConnections.Any(c =>
+            c.From.Equals(from, StringComparison.OrdinalIgnoreCase) &&
+            c.To.Equals(to, StringComparison.OrdinalIgnoreCase));
+            
+        if (!exists)
+        {
+            AgentConnections.Add(new AgentConnection { From = from, To = to });
+        }
+    }
+
+    private void ActivateConnection(string roleName)
+    {
+        // Activate any connection pointing TO this role
+        foreach (var conn in AgentConnections)
+        {
+            if (conn.To.Equals(roleName, StringComparison.OrdinalIgnoreCase))
+                conn.IsActive = true;
+        }
+    }
+
+    private void DeactivateConnection(string roleName)
+    {
+        foreach (var conn in AgentConnections)
+        {
+            if (conn.To.Equals(roleName, StringComparison.OrdinalIgnoreCase))
+                conn.IsActive = false;
+        }
+    }
+
+    private void DeactivateAllConnections()
+    {
+        foreach (var conn in AgentConnections) conn.IsActive = false;
+    }
+
+    private void ResetStatuses()
+    {
+        var orchestrator = AgentNodes.FirstOrDefault(n => n.Name.Equals("Orchestrator", StringComparison.OrdinalIgnoreCase));
+        AgentNodes.Clear();
+        
+        if (orchestrator != null)
+        {
+            orchestrator.Status = "idle";
+            orchestrator.Instruction = "Waiting for task";
+            AgentNodes.Add(orchestrator);
+        }
+        else
+        {
+            if (AgentStyles.TryGetValue("Orchestrator", out var style))
+            {
+                AgentNodes.Add(new AgentNodeState
+                {
+                    Name = "Orchestrator",
+                    Color = style.Color,
+                    Icon = style.Icon,
+                    Status = "idle",
+                    Instruction = "Waiting for task"
+                });
+            }
+        }
+        
+        AgentConnections.Clear();
+    }
+
+    // Resizable split pane
+    private double LeftFlex { get; set; } = 1;
+    private double RightFlex { get; set; } = 1;
+
+    private void OnHandlePointerDown(PointerEventArgs e) { /* handled in JS */ }
+
+    [JSInvokable]
+    public void OnSplitResize(double leftPercent)
+    {
+        LeftFlex = leftPercent;
+        RightFlex = 100 - leftPercent;
+        InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("initSplitPane", objRef);
+        }
+    }
+}

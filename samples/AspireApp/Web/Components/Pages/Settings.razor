@@ -1,0 +1,70 @@
+@page "/settings"
+@using ElBruno.AgentsOrchestration.Agents
+@inject AgentConfigurationStore Store
+
+<PageTitle>Settings</PageTitle>
+
+<h1>Agent Settings</h1>
+
+@foreach (var config in Configurations)
+{
+    <div class="card p-3 mb-3">
+        <h5>@config.Name</h5>
+        <label class="form-label">Model</label>
+        <input class="form-control mb-2" value="@config.Model" @onchange="e => UpdateModel(config.Role, e.Value?.ToString())" />
+        <label class="form-label">Instructions</label>
+        <textarea class="form-control mb-2" rows="4" @onchange="e => UpdateInstructions(config.Role, e.Value?.ToString())">@config.Instructions</textarea>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="() => Reset(config.Role)">Reset Instructions</button>
+    </div>
+}
+
+<button class="btn btn-primary" @onclick="Save">Save</button>
+@if (Saved)
+{
+    <span class="ms-2 text-success">Saved</span>
+}
+
+@code {
+    private bool Saved;
+    private List<AgentConfiguration> Configurations = [];
+
+    protected override void OnInitialized()
+    {
+        Configurations = Store.GetAll().ToList();
+    }
+
+    private void UpdateModel(AgentRole role, string? model)
+    {
+        var current = Configurations.Single(c => c.Role == role);
+        Replace(current with { Model = model ?? current.Model });
+    }
+
+    private void UpdateInstructions(AgentRole role, string? instructions)
+    {
+        var current = Configurations.Single(c => c.Role == role);
+        Replace(current with { Instructions = instructions ?? current.Instructions });
+    }
+
+    private void Reset(AgentRole role)
+    {
+        Store.ResetInstructions(role);
+        var current = Store.Get(role);
+        Replace(current);
+    }
+
+    private void Replace(AgentConfiguration updated)
+    {
+        var idx = Configurations.FindIndex(c => c.Role == updated.Role);
+        Configurations[idx] = updated;
+    }
+
+    private void Save()
+    {
+        foreach (var config in Configurations)
+        {
+            Store.Update(config);
+        }
+
+        Saved = true;
+    }
+}

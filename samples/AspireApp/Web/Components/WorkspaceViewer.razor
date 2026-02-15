@@ -1,0 +1,42 @@
+<div class="workspace-tree">
+    <div class="panel-header" @onclick="Toggle">
+        <span>&#128193; Workspace Files</span>
+        <span class="panel-chevron @(Collapsed ? "" : "open")">&#9660;</span>
+    </div>
+    <div class="panel-body @(Collapsed ? "collapsed" : "")">
+        @if (!Files.Any())
+        {
+            <p class="text-muted small mb-0" style="padding: 0.5rem 1rem;">No files yet.</p>
+        }
+        else
+        {
+            @foreach (var file in Files.OrderBy(f => f))
+            {
+                <div class="workspace-file">
+                    <span class="workspace-file-icon">@GetFileIcon(file)</span>
+                    <span>@file</span>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private bool Collapsed = true;
+
+    [Parameter] public IReadOnlyCollection<string> Files { get; set; } = [];
+
+    private void Toggle() => Collapsed = !Collapsed;
+
+    private static string GetFileIcon(string path) => Path.GetExtension(path) switch
+    {
+        ".cs" => "\U0001f7e2",
+        ".razor" => "\U0001f7e3",
+        ".css" => "\U0001f535",
+        ".html" => "\U0001f7e0",
+        ".json" => "\U0001f7e1",
+        ".md" => "\U0001f4dd",
+        ".csproj" => "\u2699\ufe0f",
+        _ => "\U0001f4c4"
+    };
+}

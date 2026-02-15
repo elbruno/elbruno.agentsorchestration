@@ -1,0 +1,94 @@
+@using AgentsOrchestration.Web.Models
+
+<div class="chat-container">
+    <div class="chat-history">
+        @foreach (var msg in Messages)
+        {
+            <div class="chat-bubble @msg.Role.ToLowerInvariant()">
+                <div class="chat-bubble-content">@msg.Content</div>
+                <div class="chat-bubble-time">@msg.Timestamp.ToLocalTime().ToString("HH:mm")</div>
+            </div>
+        }
+    </div>
+    <div class="chat-input-area">
+        <textarea class="chat-input" rows="2" placeholder="Describe what you want to build..."
+                  @bind="CurrentPrompt" @bind:event="oninput"
+                  @onkeydown="HandleKeyDown"
+                  disabled="@IsRunning"></textarea>
+        <div class="chat-actions">
+            <button class="btn btn-primary btn-sm" @onclick="RunClicked" disabled="@(IsRunning || string.IsNullOrWhiteSpace(Prompt))">
+                @if (IsRunning)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                }
+                else
+                {
+                    <span>Send</span>
+                }
+            </button>
+            <select class="form-select form-select-sm ms-2" style="width: auto; display: inline-block; max-width: 200px;" @onchange="OnTemplateSelected" disabled="@IsRunning">
+                <option selected disabled>Load a template...</option>
+                @foreach (var t in Templates)
+                {
+                    <option value="@t.Prompt">@t.Name</option>
+                }
+            </select>
+            @if (IsRunning)
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="CancelClicked">Cancel</button>
+            }
+            @if (Messages.Any())
+            {
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearClicked" disabled="@IsRunning">Clear</button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Prompt { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> PromptChanged { get; set; }
+    [Parameter] public EventCallback OnRun { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnClear { get; set; }
+    [Parameter] public bool IsRunning { get; set; }
+    [Parameter] public IReadOnlyCollection<ChatMessage> Messages { get; set; } = [];
+
+    private string CurrentPrompt
+    {
+        get => Prompt;
+        set => _ = PromptChanged.InvokeAsync(value);
+    }
+
+    private async Task RunClicked() => await OnRun.InvokeAsync();
+    private async Task CancelClicked() => await OnCancel.InvokeAsync();
+    private async Task ClearClicked() => await OnClear.InvokeAsync();
+
+    private void OnTemplateSelected(ChangeEventArgs e)
+    {
+        if (e.Value is string s && !string.IsNullOrEmpty(s))
+        {
+            CurrentPrompt = s;
+            // Optionally clear the selection so the user can re-select the same template if they clear the text manually
+            // But for now, simple assignment is enough.
+        }
+    }
+
+    private record TemplateInfo(string Name, string Prompt);
+
+    private readonly List<TemplateInfo> Templates =
+    [
+        new("Weather App (Console)", "Create a .NET console app that displays current weather for three cities: Toronto, Tokyo, and Madrid. Search online for free services that can provide this information and use these services in the app to get the values for the temperature in these cities. Show the city name, temperature, and a weather emoji (☀️ for warm, 🌤️ for mild, ❄️ for cold)."),
+        new("Calculator (Console)", "Create a simple calculator console application that supports addition, subtraction, multiplication, and division. It should ask the user for two numbers and an operation."),
+        new("Echo Bot (Console)", "Create a console application that acts as an echo bot. It should continuously read user input and print it back until the user types 'exit'."),
+        new("Minimal API (Web)", "Create a simple ASP.NET Core Minimal API with a single endpoint /hello that returns 'Hello World'.")
+    ];
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !IsRunning && !string.IsNullOrWhiteSpace(Prompt))
+        {
+            await RunClicked();
+        }
+    }
+}

@@ -1,0 +1,29 @@
+The workspace is empty. For a .NET console application, traditional CSS doesn't apply. Instead, I'll create a **console styling helper** that provides visual formatting through ANSI escape codes for colored output, box-drawing characters, and structured layouts.The workspace is empty. For a .NET console application, traditional CSS doesn't apply. Instead, I'll create a **console styling helper** that provides visual formatting through ANSI escape codes for colored output, box-drawing characters, and structured layouts.Created `ConsoleStyles.cs` with:
+
+- **Temperature-based colors**: Orange (≥25°C warm), Yellow (10-24°C mild), Cyan (<10°C cold)
+- **Weather emojis**: ☀️ warm, 🌤️ mild, ❄️ cold
+- **Box-drawing borders**: Rounded corners (╭╮╰╯) for modern terminal aesthetic
+- **Helper methods**: `GetTemperatureColor()`, `GetWeatherEmoji()`, `PrintWeatherCard()`, `PrintHeader()`
+
+Usage example in the console app:
+```csharp
+ConsoleStyles.PrintHeader("🌡️ Weather Report");
+ConsoleStyles.PrintWeatherCard("Toronto", 22.5);
+ConsoleStyles.PrintWeatherCard("Tokyo", 28.0);
+ConsoleStyles.PrintWeatherCard("Madrid", 8.0);
+ConsoleStyles.PrintFooter();
+```Created `ConsoleStyles.cs` with:
+
+- **Temperature-based colors**: Orange (≥25°C warm), Yellow (10-24°C mild), Cyan (<10°C cold)
+- **Weather emojis**: ☀️ warm, 🌤️ mild, ❄️ cold
+- **Box-drawing borders**: Rounded corners (╭╮╰╯) for modern terminal aesthetic
+- **Helper methods**: `GetTemperatureColor()`, `GetWeatherEmoji()`, `PrintWeatherCard()`, `PrintHeader()`
+
+Usage example in the console app:
+```csharp
+ConsoleStyles.PrintHeader("🌡️ Weather Report");
+ConsoleStyles.PrintWeatherCard("Toronto", 22.5);
+ConsoleStyles.PrintWeatherCard("Tokyo", 28.0);
+ConsoleStyles.PrintWeatherCard("Madrid", 8.0);
+ConsoleStyles.PrintFooter();
+```

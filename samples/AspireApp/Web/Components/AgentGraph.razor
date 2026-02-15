@@ -1,0 +1,88 @@
+@using AgentsOrchestration.Web.Models
+
+<div class="agent-graph-container">
+    <svg class="agent-graph-svg" viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                </feMerge>
+            </filter>
+        </defs>
+
+        @* Connection lines from Orchestrator (center) to each satellite *@
+        @foreach (var conn in Connections)
+        {
+            var fromPos = GetNodePosition(conn.From);
+            var toPos = GetNodePosition(conn.To);
+            var activeClass = conn.IsActive ? "active" : "";
+            var strokeColor = conn.IsActive ? GetNodeColor(conn.To) : "#30363d";
+            <line x1="@fromPos.x" y1="@fromPos.y" x2="@toPos.x" y2="@toPos.y" class="agent-connection @activeClass"
+                  stroke="@strokeColor" />
+        }
+
+        @* Agent nodes *@
+        @foreach (var node in Nodes)
+        {
+            var pos = GetNodePosition(node.Name);
+            var isCenter = node.Name == "Orchestrator";
+            var w = isCenter ? 160 : 170;
+            var h = isCenter ? 80 : 72;
+            var statusClass = $"status-{node.Status}";
+            var strokeColor = node.Status == "active" ? node.Color
+                            : node.Status == "complete" ? "#3fb950"
+                            : "#30363d";
+            var fillColor = node.Status == "active" ? "rgba(88,166,255,0.06)" : "#1c2128";
+            <g>
+                <rect x="@(pos.x - w / 2)" y="@(pos.y - h / 2)" width="@w" height="@h" class="agent-node-bg @statusClass"
+                      fill="@fillColor" stroke="@strokeColor" />
+
+                @* Icon + Name row *@
+                <text x="@(pos.x)" y="@(pos.y - (isCenter ? 18 : 14))" text-anchor="middle"
+                      class="agent-node-icon">@node.Icon</text>
+                <text x="@(pos.x)" y="@(pos.y + 2)" text-anchor="middle" class="agent-node-name"
+                      fill="@node.Color">@node.Name</text>
+
+                @* Model *@
+                <text x="@(pos.x)" y="@(pos.y + 16)" text-anchor="middle" class="agent-node-model">@node.Model</text>
+
+                @* Instruction preview *@
+                <text x="@(pos.x)" y="@(pos.y + (isCenter ? 30 : 28))" text-anchor="middle" class="agent-node-instruction">
+                    @Truncate(node.Instruction, 30)
+                </text>
+            </g>
+        }
+    </svg>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyCollection<AgentNodeState> Nodes { get; set; } = [];
+    [Parameter] public IReadOnlyCollection<AgentConnection> Connections { get; set; } = [];
+
+    private static (int x, int y) GetNodePosition(string name) => name switch
+    {
+        "Orchestrator" => (350, 180),
+        "Planner" => (130, 60),
+        "Coder" => (570, 60),
+        "Designer" => (130, 300),
+        "Researcher" => (350, 340),
+        "Fixer" => (570, 300),
+        _ => (350, 180)
+    };
+
+    private static string GetNodeColor(string name) => name switch
+    {
+        "Orchestrator" => "#8b949e",
+        "Planner" => "#58a6ff",
+        "Coder" => "#3fb950",
+        "Designer" => "#f778ba",
+        "Researcher" => "#6610f2",
+        "Fixer" => "#fd7e14",
+        _ => "#8b949e"
+    };
+
+    private static string Truncate(string text, int max) =>
+        text.Length <= max ? text : $"{text[..max]}...";
+}

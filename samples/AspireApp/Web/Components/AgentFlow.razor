@@ -1,0 +1,163 @@
+@using ElBruno.AgentsOrchestration.Orchestration
+@using ElBruno.AgentsOrchestration.Views
+@using ElBruno.AgentsOrchestration.Agents
+@using System.Security.Cryptography
+@using System.Text
+
+<div class="agent-flow-container p-3 h-100 overflow-auto">
+    @if (Graph?.Calls == null || !Graph.Calls.Any())
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+            <i class="bi bi-list-nested display-4 mb-3"></i>
+            <p>No agent activity recorded yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="timeline">
+            @foreach (var call in Graph.Calls)
+            {
+                var fromAgent = call.FromAgent.ToString();
+                var toAgent = call.ToAgent.ToString();
+                var fromStyle = GetAgentStyle(fromAgent);
+                var toStyle = GetAgentStyle(toAgent);
+                
+                <div class="timeline-item slide-in" @key="call">
+                    <div class="timeline-marker">
+                        <span class="timeline-time">@call.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+                    </div>
+                    <div class="timeline-content card shadow-sm mb-3 border-0">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="agent-badge me-2" style="background-color: @fromStyle.Color; color: white">
+                                    <span class="agent-icon">@fromStyle.Icon</span>
+                                    <span class="agent-name">@fromAgent</span>
+                                </div>
+                                <div class="arrow-connector flex-grow-1 mx-2 text-center text-muted">
+                                    <i class="bi bi-arrow-right"></i>
+                                </div>
+                                <div class="agent-badge ms-2" style="background-color: @toStyle.Color; color: white">
+                                    <span class="agent-icon">@toStyle.Icon</span>
+                                    <span class="agent-name">@toAgent</span>
+                                </div>
+                            </div>
+                            
+                            <div class="call-purpose">
+                                @if (call.AttemptNumber.HasValue && call.AttemptNumber > 1)
+                                {
+                                    <span class="badge bg-warning text-dark me-2">Attempt @call.AttemptNumber</span>
+                                }
+                                @call.Purpose
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 20px;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 85px; /* Adjust based on time width */
+        width: 2px;
+        background-color: #e9ecef;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-left: 80px; /* Space for time */
+        margin-bottom: 1rem;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: 0;
+        top: 15px;
+        width: 70px;
+        text-align: right;
+    }
+
+    .timeline-time {
+        font-size: 0.75rem;
+        color: #6c757d;
+        font-family: monospace;
+    }
+
+    .agent-badge {
+        display: flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        min-width: 120px;
+    }
+
+    .agent-icon {
+        margin-right: 6px;
+        font-size: 1.1em;
+    }
+
+    .call-purpose {
+        font-size: 0.95rem;
+        color: #212529;
+        line-height: 1.5;
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 6px;
+        border-left: 3px solid #dee2e6;
+    }
+
+    .arrow-connector i {
+        font-size: 1.2rem;
+    }
+
+    .slide-in {
+        animation: slideIn 0.3s ease-out forwards;
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+@code {
+    [Parameter] public AgentCallGraph Graph { get; set; } = new();
+
+    private static (string Color, string Icon) GetAgentStyle(string roleName) 
+    {
+        return AgentStyles.TryGetValue(roleName, out var style) 
+            ? style 
+            : ("#6c757d", "\U0001f916");
+    }
+
+    private static readonly Dictionary<string, (string Color, string Icon)> AgentStyles =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Orchestrator", ("#8b949e", "\U0001f3af") },
+            { "Planner", ("#58a6ff", "\U0001f4cb") },
+            { "Coder", ("#3fb950", "\U0001f4bb") },
+            { "Designer", ("#f778ba", "\U0001f3a8") },
+            { "Researcher", ("#6610f2", "\U0001f50d") },
+            { "Fixer", ("#fd7e14", "\U0001f527") },
+            { "BuildReviewer", ("#20c997", "\U0001f9d0") }
+        };
+}
