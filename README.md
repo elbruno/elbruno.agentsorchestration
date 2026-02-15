@@ -1,5 +1,12 @@
 # ElBruno.AgentsOrchestration — Multi-Agent Orchestration Libraries
 
+[![NuGet](https://img.shields.io/nuget/v/ElBruno.AgentsOrchestration.Core.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ElBruno.AgentsOrchestration.Core.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
+[![Build Status](https://github.com/elbruno/elbruno.agentsorchestration/actions/workflows/publish.yml/badge.svg)](https://github.com/elbruno/elbruno.agentsorchestration/actions/workflows/publish.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/elbruno/elbruno.agentsorchestration?style=social)](https://github.com/elbruno/elbruno.agentsorchestration)
+[![Twitter Follow](https://img.shields.io/twitter/follow/elbruno?style=social)](https://twitter.com/elbruno)
+
 A **.NET 10** library suite inspired by [Burke Holland's "Ultralight Orchestration" video](https://www.youtube.com/watch?v=-BhfcPseWFQ&t=586s), implementing the pattern in production-ready C#. Build software automatically using a coordinated team of **11 specialized AI agents**—including **Orchestrator**, **Planner**, **Coder**, **Designer**, **Researcher**, **Fixer**, **BuildReviewer**, **SecurityExpert**, **TestingExpert**, **DocumentationExpert**, and **SoftwareArchitect**—that work together to execute your prompts.
 
 ## Overview
@@ -60,8 +67,6 @@ The libraries provide a production-ready orchestration engine with:
 ---
 
 ## Installation
-
-[![NuGet](https://img.shields.io/nuget/v/ElBruno.AgentsOrchestration.Core.svg)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
 
 ```bash
 dotnet add package ElBruno.AgentsOrchestration.Core
@@ -177,7 +182,5 @@ If you have questions, feedback, or want to chat about this project—hit me up 
 ## License
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 **Copyright © ElBruno** — All rights reserved.
