@@ -1,12 +1,13 @@
 # ElBruno.AgentsOrchestration — Multi-Agent Orchestration Libraries
 
-A **.NET 10** library suite inspired by [Burke Holland's "Ultralight Orchestration" video](https://www.youtube.com/watch?v=-BhfcPseWFQ&t=586s), implementing the pattern in production-ready C#. Build software automatically using a coordinated team of seven AI agents—**Orchestrator**, **Planner**, **Coder**, **Designer**, **Researcher**, **Fixer**, and **BuildReviewer**—that work together to execute your prompts.
+A **.NET 10** library suite inspired by [Burke Holland's "Ultralight Orchestration" video](https://www.youtube.com/watch?v=-BhfcPseWFQ&t=586s), implementing the pattern in production-ready C#. Build software automatically using a coordinated team of **11 specialized AI agents**—including **Orchestrator**, **Planner**, **Coder**, **Designer**, **Researcher**, **Fixer**, **BuildReviewer**, **SecurityExpert**, **TestingExpert**, **DocumentationExpert**, and **SoftwareArchitect**—that work together to execute your prompts.
 
 ## Overview
 
 The libraries provide a production-ready orchestration engine with:
 
-- **Seven specialized AI agents** that coordinate through a 6-step pipeline (Plan → Parse → Execute → Verify → Review → Report)
+- **11 specialized AI agents powered by GitHub Copilot SDK** — 6 core agents for the orchestration pipeline and 5 specialist agents for extended capabilities (security, testing, documentation, architecture, research)
+- **GitHub Copilot integration** — all agents leverage the GitHub Copilot SDK for intelligent code generation, analysis, and planning
 - **Research capabilities** — the Researcher agent leverages web search and documentation (Microsoft Learn, Context7) to provide external knowledge
 - **Inter-agent communication** — agents can request research and receive enriched context for better results
 - **Flow tracing and visualization** — track all agent interactions with Mermaid diagrams and JSON flow data
@@ -22,83 +23,49 @@ The libraries provide a production-ready orchestration engine with:
 
 - **📚 [Getting Started](docs/getting-started.md)** — Step-by-step guide with sample prompts
 - **🏗️ [Architecture](docs/architecture.md)** — Design patterns and library structure
-- **� [Researcher Agent](docs/RESEARCHER_AGENT.md)** — Complete guide to the research agent and inter-agent communication
-- **�📖 [Using the Libraries](docs/using-the-libraries.md)** — How to integrate into your own projects
-- **🎯 [Samples Overview](docs/samples-overview.md)** — Complete guide to all three samples
-- **💡 [Samples](samples/)** — Three ready-to-run examples:
-  - **[ConsoleSimple](samples/ConsoleSimple)** — Minimal 7-step demo (weather app)
+- **📦 [Library Packages](docs/library-packages.md)** — Core abstractions, orchestration engine, and complete toolkit
+- **🤖 [All Agents](docs/agents.md)** — Complete guide to all 11 agents and their roles
+- **🔎 [Researcher Agent](docs/RESEARCHER_AGENT.md)** — Complete guide to the research agent and inter-agent communication
+- **📖 [Using the Libraries](docs/using-the-libraries.md)** — How to integrate into your own projects
+- **🎯 [Samples Overview](docs/samples-overview.md)** — Complete guide to all four samples
+- **💡 [Samples](samples/)** — Four ready-to-run examples:
+  - **[ConsoleSimple](samples/ConsoleSimple)** — Minimal demo (weather app)
   - **[ConsoleCompleteChat](samples/ConsoleCompleteChat)** — Full interactive multi-turn chat
+  - **[ConsoleFlowTraces](samples/ConsoleFlowTraces)** — Flow tracing and call graph visualization
   - **[AspireApp](samples/AspireApp)** — Production-grade Blazor dashboard with REST API
 
 ---
 
-## Library Packages
+## The 11 AI Agents
 
-### `ElBruno.AgentsOrchestration.Abstractions`
+### Core Pipeline Agents (6-Step Orchestration)
 
-**Zero-dependency** package with core types for building agents:
+1. **🗺️ Planner** — Analyzes requirements and creates implementation plans
+2. **🧭 Orchestrator** — Coordinates agent communication and task delegation
+3. **💻 Coder** — Generates application code and business logic
+4. **🎨 Designer** — Creates user interfaces and visual components
+5. **🔧 Fixer** — Detects and corrects build errors automatically
+6. **📊 BuildReviewer** — Analyzes code quality, performance, and best practices
 
-- Agent roles and configuration
-- `IAgentClient` interface
-- Agent factory and session management
-- Instruction loading utilities
+### Specialist Agents (Extended Capabilities)
 
-**Use this package when:**
+1. **🔎 Researcher** — Searches external documentation and web resources
+2. **🔒 SecurityExpert** — Validates security and identifies vulnerabilities
+3. **✅ TestingExpert** — Generates comprehensive test suites
+4. **📚 DocumentationExpert** — Creates API docs, READMEs, and guides
+5. **🏗️ SoftwareArchitect** — Validates architecture and enforces design patterns
 
-- You''re building your own agent orchestration logic
-- You want minimal dependencies
-- You''re implementing a custom `IAgentClient` for a different LLM provider
-
-### `ElBruno.AgentsOrchestration.Orchestration`
-
-**Depends on Abstractions** — the orchestration engine and event model:
-
-- 6-step orchestration pipeline (Plan → Parse → Execute → Verify → Review → Report)
-- Event streaming via System.Threading.Channels
-- 18 event types for monitoring progress (includes BuildReviewStarted/Completed)
-- `IWorkspace` abstraction for pluggable storage
-
-**Use this package when:**
-
-- You want the full orchestration pipeline
-- You need event streaming to monitor progress
-- You''re building a custom UI or integration
-
-### `ElBruno.AgentsOrchestration.Core`
-
-**Depends on Abstractions + Orchestration** — the complete toolkit:
-
-- `TemplateAgentClient` for testing without an LLM
-- `WorkspaceManager` with file-based workspace isolation
-- `AppRunner` for launching generated applications
-- Agent instruction files (Markdown) for all 6 roles
-- Integrated with GitHub Copilot SDK and Microsoft Agents AI
-
-**Use this package when:**
-
-- You want the complete out-of-the-box experience
-- In tests and sample code
-- You''re building a chat interface or dashboard
+👉 **[See all agents](docs/agents.md)** for detailed responsibilities and use cases.
 
 ---
 
 ## Installation
 
-### From Local Repository
-
-Clone and reference the projects:
-
-```xml
-<ItemGroup>
-  <ProjectReference Include="../src/ElBruno.AgentsOrchestration.Core/ElBruno.AgentsOrchestration.Core.csproj" />
-</ItemGroup>
-```
-
-### NuGet (When Published)
-
 ```bash
 dotnet add package ElBruno.AgentsOrchestration.Core
 ```
+
+The package includes all three libraries (Abstractions, Orchestration, Core) and is powered by the **GitHub Copilot SDK** for agent intelligence.
 
 ---
 
@@ -180,37 +147,6 @@ dotnet test
 
 ---
 
-## Samples
-
-### ConsoleSimple — Minimal Demo
-
-```bash
-dotnet run --project samples/ConsoleSimple
-```
-
-Best for understanding the basic flow. See [ConsoleSimple/README.md](samples/ConsoleSimple/README.md).
-
-### ConsoleCompleteChat — Interactive Multi-Turn
-
-```bash
-dotnet run --project samples/ConsoleCompleteChat
-```
-
-Full-featured with conversation memory, app launcher, and run command copy. See [ConsoleCompleteChat](samples/ConsoleCompleteChat).
-
-### AspireApp — Production Dashboard
-
-```bash
-dotnet run --project samples/AspireApp/AppHost
-```
-
-Blazor UI + REST API + OpenTelemetry + Health checks. See [AspireApp](samples/AspireApp).
-
----
-
-## Documentation
-
-- 📚 [Getting Started](docs/getting-started.md) — Run the samples and try example prompts
 - 🏗️ [Architecture](docs/architecture.md) — Design patterns and system structure
 - 📖 [Using the Libraries](docs/using-the-libraries.md) — Integrate into your own projects
 - ✨ [Smart Instruction Loading](docs/SMART_INSTRUCTION_LOADING.md) — How agent instructions are loaded

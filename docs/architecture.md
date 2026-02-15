@@ -56,7 +56,7 @@ The libraries are organized for reusability and minimal dependencies. Three pack
 
 **Zero-dependency** library with foundational types:
 
-- **`AgentRole`** — enum (Orchestrator, Planner, Coder, Designer, Researcher, Fixer, BuildReviewer)
+- **`AgentRole`** — enum with 11 agents: Orchestrator, Planner, Coder, Designer, Researcher, Fixer, BuildReviewer, SecurityExpert, TestingExpert, DocumentationExpert, SoftwareArchitect
 - **`AgentConfiguration`** — immutable record with role, model, instructions, color, icon, and optional tool configuration
 - **`AgentToolConfiguration`** — configuration for Copilot tools (web search, MCP servers)
 - **`IAgentClient`** — interface for LLM providers to implement
@@ -95,6 +95,33 @@ References the two above. Production-ready toolkit:
 **Also depends on:** `GitHub.Copilot.SDK`, `Microsoft.Agents.AI.*`
 
 **Use when:** You want everything ready to go.
+
+## AI Agents Overview
+
+The system includes **11 specialized agents**: 6 core orchestration agents plus 5 specialist agents for extended capabilities.
+
+### Core Orchestration Agents
+
+These agents drive the 6-step pipeline:
+
+1. **Planner** (Step 1) — Analyzes requirements and creates implementation plans
+2. **Orchestrator** (Steps 2, 4, 6) — Coordinates task delegation and orchestration flow
+3. **Coder** (Step 3) — Generates application code and business logic
+4. **Designer** (Step 3) — Creates user interfaces and visual components
+5. **Fixer** (Step 4) — Detects and fixes build errors automatically
+6. **BuildReviewer** (Step 5) — Analyzes code quality, performance, and best practices
+
+### Specialist Agents
+
+These agents provide extended capabilities and can be consulted by core agents:
+
+1. **Researcher** — Searches external documentation, web resources, and APIs
+2. **SecurityExpert** — Validates security and identifies vulnerabilities
+3. **TestingExpert** — Generates comprehensive unit and integration tests
+4. **DocumentationExpert** — Creates API docs, READMEs, architecture diagrams
+5. **SoftwareArchitect** — Validates architecture and enforces design patterns
+
+For detailed agent descriptions and consulting strategies, see [All Agents](agents.md).
 
 ## Samples
 

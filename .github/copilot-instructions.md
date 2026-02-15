@@ -11,7 +11,7 @@ This is a .NET 10 (`net10.0`) solution with three library projects, sample appli
 - **samples/ElBruno.AgentsOrchestration.AspireApp** — Production-grade Aspire app with Blazor dashboard, REST API, health checks, and distributed tracing.
 - **tests/AgentsOrchestration.Core.Tests** — xUnit integration and unit tests.
 
-The system implements Burke Holland's "Ultralight Orchestration" pattern: six AI agents (Orchestrator, Planner, Coder, Designer, Fixer, BuildReviewer) coordinate through a 6-step pipeline (Plan → Parse → Execute → Verify → Review → Report) with events streamed via System.Threading.Channels.
+The system implements Burke Holland's "Ultralight Orchestration" pattern with 11 specialized AI agents: six core agents (Orchestrator, Planner, Coder, Designer, Fixer, BuildReviewer) coordinate through a 6-step pipeline (Plan → Parse → Execute → Verify → Review → Report), plus five specialist agents (Researcher, SecurityExpert, TestingExpert, DocumentationExpert, SoftwareArchitect) for extended capabilities.
 
 ## Key Patterns
 
