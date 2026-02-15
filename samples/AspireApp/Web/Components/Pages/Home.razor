@@ -38,7 +38,7 @@
                     <div class="plan-viewer-container">
                         <PlanViewer Plan="_currentPlan" CurrentPhaseIndex="_currentPhaseIndex"
                                     ShowActions="_planAwaitingApproval" IsExecuting="IsRunning && !_planAwaitingApproval"
-                                    OnApprove="ApprovePlan" OnCancel="RejectPlan" PlanMarkdown="_currentPlanMarkdown" />
+                                    OnApprove="ApprovePlan" OnCancel="RejectPlan" PlanMarkdown="@_currentPlanMarkdown" />
                         
                         @if (IsRunning && !_planAwaitingApproval && _currentPlan is not null)
                         {

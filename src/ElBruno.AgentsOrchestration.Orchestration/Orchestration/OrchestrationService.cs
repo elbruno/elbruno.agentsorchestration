@@ -144,13 +144,61 @@ public sealed class OrchestrationService
 
         if (phases.Count == 0)
         {
-            phases.Add(new ExecutionPhase("Implementation",
+            return CreateFallbackPlan(prompt);
+        }
+
+        return new ExecutionPlan(phases);
+    }
+
+    private static ExecutionPlan CreateFallbackPlan(string prompt)
+    {
+        var promptLower = prompt.ToLowerInvariant();
+        var isWebApp = promptLower.Contains("web") || promptLower.Contains("blazor") || promptLower.Contains("api") || promptLower.Contains("landing");
+        var isResearch = promptLower.Contains("search") || promptLower.Contains("research") || promptLower.Contains("online") ||
+                         promptLower.Contains("look up") || promptLower.Contains("find out") || promptLower.Contains("investigate");
+        var needsModels = promptLower.Contains("model") || promptLower.Contains("weather") || promptLower.Contains("dto") || promptLower.Contains("entity");
+
+        var phases = new List<ExecutionPhase>();
+
+        if (isResearch)
+        {
+            phases.Add(new ExecutionPhase("Research",
             [
-                new ExecutionTask("Implement main application logic", AgentRole.Coder, "Program.cs"),
-                new ExecutionTask("Create data models", AgentRole.Coder, "Models.cs"),
-                new ExecutionTask("Create application styles", AgentRole.Designer, "styles.css")
+                new ExecutionTask("Research available options", AgentRole.Researcher, "research.md")
             ]));
         }
+
+        phases.Add(new ExecutionPhase("Project Setup",
+        [
+            new ExecutionTask("Create project file", AgentRole.Coder, "project.csproj")
+        ]));
+
+        var implementationTasks = new List<ExecutionTask>
+        {
+            new("Implement main application logic", AgentRole.Coder, "Program.cs")
+        };
+
+        if (needsModels)
+        {
+            implementationTasks.Add(new ExecutionTask("Create data models", AgentRole.Coder, "Models.cs"));
+        }
+
+        if (isWebApp)
+        {
+            implementationTasks.Add(new ExecutionTask("Create application styles", AgentRole.Designer, "styles.css"));
+        }
+
+        phases.Add(new ExecutionPhase("Core Implementation", implementationTasks.ToArray()));
+
+        phases.Add(new ExecutionPhase("Quality Review",
+        [
+            new ExecutionTask("Review code quality and best practices", AgentRole.BuildReviewer, "review.md")
+        ]));
+
+        phases.Add(new ExecutionPhase("Validation",
+        [
+            new ExecutionTask("Build and validate generated project", AgentRole.Orchestrator, "build-output.log")
+        ]));
 
         return new ExecutionPlan(phases);
     }
@@ -202,7 +250,8 @@ public sealed class OrchestrationService
         await PublishAsync(new AgentActivatedEvent(DateTimeOffset.UtcNow, task.AssignedRole, task.Description, instructionPreview), cancellationToken);
 
         var startTime = DateTimeOffset.UtcNow;
-        var output = await session.RunAsync(task.Description, workspacePath, cancellationToken);
+        var taskPrompt = BuildTaskPrompt(task);
+        var output = await session.RunAsync(taskPrompt, workspacePath, cancellationToken);
         var duration = DateTimeOffset.UtcNow - startTime;
 
         // Store agent output
@@ -218,7 +267,8 @@ public sealed class OrchestrationService
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await File.WriteAllTextAsync(fullPath, output, cancellationToken);
+        var normalizedOutput = NormalizeGeneratedFileContent(output, task.FileScope);
+        await File.WriteAllTextAsync(fullPath, normalizedOutput, cancellationToken);
         await PublishAsync(new FileCreatedEvent(DateTimeOffset.UtcNow, task.FileScope), cancellationToken);
         await PublishAsync(new AgentCompletedEvent(DateTimeOffset.UtcNow, task.AssignedRole, output), cancellationToken);
 
@@ -236,6 +286,102 @@ public sealed class OrchestrationService
         }
 
         return new TaskResult(task.AssignedRole, task.Description, output);
+    }
+
+    private static string BuildTaskPrompt(ExecutionTask task)
+    {
+        return $"""
+            Task: {task.Description}
+            Target file: {task.FileScope}
+
+            Return only the final content for this target file.
+            Do not include explanations, markdown, or code fences.
+            """;
+    }
+
+    private static string NormalizeGeneratedFileContent(string output, string fileScope)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return output;
+        }
+
+        var trimmed = output.Trim();
+        var extension = Path.GetExtension(fileScope).ToLowerInvariant();
+
+        // Prefer fenced code content when available.
+        var fenced = TryExtractCodeFence(trimmed);
+        if (!string.IsNullOrWhiteSpace(fenced))
+        {
+            trimmed = fenced!;
+        }
+
+        if (extension is ".csproj" or ".props" or ".targets" or ".xml")
+        {
+            var start = trimmed.IndexOf("<Project", StringComparison.OrdinalIgnoreCase);
+            var end = trimmed.LastIndexOf("</Project>", StringComparison.OrdinalIgnoreCase);
+            if (start >= 0 && end > start)
+            {
+                var length = end + "</Project>".Length - start;
+                return trimmed.Substring(start, length).Trim();
+            }
+        }
+
+        if (extension == ".cs")
+        {
+            var lines = trimmed.Split('\n');
+            var firstCodeLine = -1;
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i].TrimStart();
+                if (line.StartsWith("using ", StringComparison.Ordinal)
+                    || line.StartsWith("namespace ", StringComparison.Ordinal)
+                    || line.StartsWith("public ", StringComparison.Ordinal)
+                    || line.StartsWith("internal ", StringComparison.Ordinal)
+                    || line.StartsWith("file ", StringComparison.Ordinal)
+                    || line.StartsWith("class ", StringComparison.Ordinal)
+                    || line.StartsWith("record ", StringComparison.Ordinal)
+                    || line.StartsWith("Console.", StringComparison.Ordinal)
+                    || line.StartsWith("var ", StringComparison.Ordinal)
+                    || line.StartsWith("//", StringComparison.Ordinal)
+                    || line.StartsWith("/*", StringComparison.Ordinal))
+                {
+                    firstCodeLine = i;
+                    break;
+                }
+            }
+
+            if (firstCodeLine > 0)
+            {
+                return string.Join('\n', lines.Skip(firstCodeLine)).Trim();
+            }
+        }
+
+        return trimmed;
+    }
+
+    private static string? TryExtractCodeFence(string content)
+    {
+        var startFence = content.IndexOf("```", StringComparison.Ordinal);
+        if (startFence < 0)
+        {
+            return null;
+        }
+
+        var firstLineEnd = content.IndexOf('\n', startFence);
+        if (firstLineEnd < 0)
+        {
+            return null;
+        }
+
+        var endFence = content.IndexOf("```", firstLineEnd + 1, StringComparison.Ordinal);
+        if (endFence < 0)
+        {
+            return null;
+        }
+
+        var code = content.Substring(firstLineEnd + 1, endFence - firstLineEnd - 1);
+        return code.Trim();
     }
 
     private async Task<string> VerifyAsync(IReadOnlyCollection<TaskResult> results, string workspacePath, CancellationToken cancellationToken)
