@@ -57,6 +57,9 @@ public static class OrchestrationServiceCollectionExtensions
         // Register agent factory (singleton)
         services.TryAddSingleton<AgentFactory>();
 
+        // Register agent output store (singleton)
+        services.TryAddSingleton<ElBruno.AgentsOrchestration.Orchestration.AgentOutputStore>();
+
         // Register workspace manager (scoped - new workspace per request)
         services.TryAddScoped<IWorkspace>(sp =>
         {
@@ -69,8 +72,9 @@ public static class OrchestrationServiceCollectionExtensions
         {
             var factory = sp.GetRequiredService<AgentFactory>();
             var workspace = sp.GetRequiredService<IWorkspace>();
+            var outputStore = sp.GetRequiredService<ElBruno.AgentsOrchestration.Orchestration.AgentOutputStore>();
             var options = sp.GetRequiredService<IOptions<OrchestrationOptions>>().Value;
-            return new OrchestrationService(factory, workspace, options.MaxFixAttempts);
+            return new OrchestrationService(factory, workspace, options.MaxFixAttempts, outputStore);
         });
 
         return services;

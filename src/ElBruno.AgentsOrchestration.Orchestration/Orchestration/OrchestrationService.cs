@@ -8,26 +8,60 @@ public sealed class OrchestrationService
     private readonly AgentFactory _agentFactory;
     private readonly IWorkspace _workspace;
     private readonly int _maxFixAttempts;
+    private readonly AgentOutputStore? _outputStore;
+    private string? _currentSessionId;
 
-    public OrchestrationService(AgentFactory agentFactory, IWorkspace workspace, int maxFixAttempts = 3)
+    public OrchestrationService(
+        AgentFactory agentFactory,
+        IWorkspace workspace,
+        int maxFixAttempts = 3,
+        AgentOutputStore? outputStore = null)
     {
         _agentFactory = agentFactory;
         _workspace = workspace;
+        _outputStore = outputStore;
         _maxFixAttempts = Math.Clamp(maxFixAttempts, 0, 10);
     }
 
     public Channel<OrchestrationEvent> Events { get; } = Channel.CreateBounded<OrchestrationEvent>(
         new BoundedChannelOptions(1000) { FullMode = BoundedChannelFullMode.DropOldest });
 
+    /// <summary>
+    /// Callback invoked when a plan is generated. Return true to approve and continue, false to cancel.
+    /// If null, plan is auto-approved.
+    /// </summary>
+    public Func<ExecutionPlan, string, Task<bool>>? PlanApprovalCallback { get; set; }
+
     public async Task<OrchestrationResult> RunAsync(OrchestrationRequest request, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Prompt, nameof(request.Prompt));
 
+        _currentSessionId = Guid.NewGuid().ToString("N");
         await PublishAsync(new OrchestrationStartedEvent(DateTimeOffset.UtcNow, request.Prompt), cancellationToken);
         try
         {
             var workspacePath = _workspace.CreateWorkspace(request.Prompt);
-            var plan = await BuildPlanAsync(request.Prompt, workspacePath, cancellationToken);
+            var (plan, planMarkdown) = await BuildPlanAsync(request.Prompt, workspacePath, cancellationToken);
+
+            // Emit plan generated event
+            await PublishAsync(new PlanGeneratedEvent(DateTimeOffset.UtcNow, planMarkdown, plan), cancellationToken);
+
+            // Plan approval workflow
+            var approved = true;
+            if (PlanApprovalCallback is not null)
+            {
+                approved = await PlanApprovalCallback(plan, planMarkdown);
+            }
+
+            await PublishAsync(new PlanApprovedEvent(DateTimeOffset.UtcNow, PlanApprovalCallback is null), cancellationToken);
+
+            if (!approved)
+            {
+                var cancelledResult = new OrchestrationResult("Plan was not approved. Orchestration cancelled.", [], workspacePath);
+                await PublishAsync(new OrchestrationCompletedEvent(DateTimeOffset.UtcNow, cancelledResult), cancellationToken);
+                return cancelledResult;
+            }
+
             var results = new List<TaskResult>();
 
             for (var i = 0; i < plan.Phases.Count; i++)
@@ -55,16 +89,20 @@ public sealed class OrchestrationService
         }
     }
 
-    private async Task<ExecutionPlan> BuildPlanAsync(string prompt, string workspacePath, CancellationToken cancellationToken)
+    private async Task<(ExecutionPlan Plan, string PlanMarkdown)> BuildPlanAsync(string prompt, string workspacePath, CancellationToken cancellationToken)
     {
         var planner = _agentFactory.CreateSession(AgentRole.Planner);
         await PublishAsync(new AgentActivatedEvent(DateTimeOffset.UtcNow, AgentRole.Planner, "Building execution plan", planner.Configuration.Instructions.Split('\n').FirstOrDefault() ?? ""), cancellationToken);
 
         var plannerOutput = await planner.RunAsync(prompt, workspacePath, cancellationToken);
+
+        // Store planner output
+        _outputStore?.StoreOutput(_currentSessionId ?? "unknown", AgentRole.Planner, plannerOutput, DateTimeOffset.UtcNow, "Building execution plan");
+
         await PublishAsync(new AgentInstructionUpdateEvent(DateTimeOffset.UtcNow, AgentRole.Planner, plannerOutput), cancellationToken);
         await PublishAsync(new AgentCompletedEvent(DateTimeOffset.UtcNow, AgentRole.Planner, plannerOutput), cancellationToken);
 
-        return ParsePlan(plannerOutput, prompt);
+        return (ParsePlan(plannerOutput, prompt), plannerOutput);
     }
 
     internal static ExecutionPlan ParsePlan(string plannerOutput, string prompt)
@@ -106,13 +144,61 @@ public sealed class OrchestrationService
 
         if (phases.Count == 0)
         {
-            phases.Add(new ExecutionPhase("Implementation",
+            return CreateFallbackPlan(prompt);
+        }
+
+        return new ExecutionPlan(phases);
+    }
+
+    private static ExecutionPlan CreateFallbackPlan(string prompt)
+    {
+        var promptLower = prompt.ToLowerInvariant();
+        var isWebApp = promptLower.Contains("web") || promptLower.Contains("blazor") || promptLower.Contains("api") || promptLower.Contains("landing");
+        var isResearch = promptLower.Contains("search") || promptLower.Contains("research") || promptLower.Contains("online") ||
+                         promptLower.Contains("look up") || promptLower.Contains("find out") || promptLower.Contains("investigate");
+        var needsModels = promptLower.Contains("model") || promptLower.Contains("weather") || promptLower.Contains("dto") || promptLower.Contains("entity");
+
+        var phases = new List<ExecutionPhase>();
+
+        if (isResearch)
+        {
+            phases.Add(new ExecutionPhase("Research",
             [
-                new ExecutionTask($"Implement main application logic for: {prompt}", AgentRole.Coder, "Program.cs"),
-                new ExecutionTask($"Create data models for: {prompt}", AgentRole.Coder, "Models.cs"),
-                new ExecutionTask($"Create application styles for: {prompt}", AgentRole.Designer, "styles.css")
+                new ExecutionTask("Research available options", AgentRole.Researcher, "research.md")
             ]));
         }
+
+        phases.Add(new ExecutionPhase("Project Setup",
+        [
+            new ExecutionTask("Create project file", AgentRole.Coder, "project.csproj")
+        ]));
+
+        var implementationTasks = new List<ExecutionTask>
+        {
+            new("Implement main application logic", AgentRole.Coder, "Program.cs")
+        };
+
+        if (needsModels)
+        {
+            implementationTasks.Add(new ExecutionTask("Create data models", AgentRole.Coder, "Models.cs"));
+        }
+
+        if (isWebApp)
+        {
+            implementationTasks.Add(new ExecutionTask("Create application styles", AgentRole.Designer, "styles.css"));
+        }
+
+        phases.Add(new ExecutionPhase("Core Implementation", implementationTasks.ToArray()));
+
+        phases.Add(new ExecutionPhase("Quality Review",
+        [
+            new ExecutionTask("Review code quality and best practices", AgentRole.BuildReviewer, "review.md")
+        ]));
+
+        phases.Add(new ExecutionPhase("Validation",
+        [
+            new ExecutionTask("Build and validate generated project", AgentRole.Orchestrator, "build-output.log")
+        ]));
 
         return new ExecutionPlan(phases);
     }
@@ -129,7 +215,8 @@ public sealed class OrchestrationService
         var description = parts[0].StartsWith("Task:", StringComparison.OrdinalIgnoreCase)
             ? parts[0][5..].Trim()
             : parts[0];
-        description = $"{description} for: {prompt}";
+        // Don't append full prompt - keep descriptions concise
+        // description = $"{description} for: {prompt}";
 
         var agentStr = parts[1].StartsWith("Agent:", StringComparison.OrdinalIgnoreCase)
             ? parts[1][6..].Trim()
@@ -147,11 +234,29 @@ public sealed class OrchestrationService
 
     private async Task<TaskResult> ExecuteTaskAsync(ExecutionTask task, string workspacePath, CancellationToken cancellationToken)
     {
+        // Emit research-specific events for Researcher agent
+        if (task.AssignedRole == AgentRole.Researcher)
+        {
+            await PublishAsync(new ResearchRequestedEvent(
+                DateTimeOffset.UtcNow,
+                AgentRole.Orchestrator,
+                task.Description,
+                ResearchScope.All
+            ), cancellationToken);
+        }
+
         var session = _agentFactory.CreateSession(task.AssignedRole);
         var instructionPreview = string.Join('\n', session.Configuration.Instructions.Split('\n').Take(2));
         await PublishAsync(new AgentActivatedEvent(DateTimeOffset.UtcNow, task.AssignedRole, task.Description, instructionPreview), cancellationToken);
 
-        var output = await session.RunAsync(task.Description, workspacePath, cancellationToken);
+        var startTime = DateTimeOffset.UtcNow;
+        var taskPrompt = BuildTaskPrompt(task);
+        var output = await session.RunAsync(taskPrompt, workspacePath, cancellationToken);
+        var duration = DateTimeOffset.UtcNow - startTime;
+
+        // Store agent output
+        _outputStore?.StoreOutput(_currentSessionId ?? "unknown", task.AssignedRole, output, DateTimeOffset.UtcNow, task.Description);
+
         await PublishAsync(new AgentStreamingEvent(DateTimeOffset.UtcNow, task.AssignedRole, output), cancellationToken);
 
         var fullPath = Path.GetFullPath(Path.Combine(workspacePath, task.FileScope.Replace('/', Path.DirectorySeparatorChar)));
@@ -162,11 +267,121 @@ public sealed class OrchestrationService
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await File.WriteAllTextAsync(fullPath, output, cancellationToken);
+        var normalizedOutput = NormalizeGeneratedFileContent(output, task.FileScope);
+        await File.WriteAllTextAsync(fullPath, normalizedOutput, cancellationToken);
         await PublishAsync(new FileCreatedEvent(DateTimeOffset.UtcNow, task.FileScope), cancellationToken);
         await PublishAsync(new AgentCompletedEvent(DateTimeOffset.UtcNow, task.AssignedRole, output), cancellationToken);
 
+        // Emit research completed event for Researcher agent
+        if (task.AssignedRole == AgentRole.Researcher)
+        {
+            // Parse source count from output (simplified - in real implementation, parse markdown)
+            var sourceCount = output.Split("##").Length - 1;
+            await PublishAsync(new ResearchCompletedEvent(
+                DateTimeOffset.UtcNow,
+                AgentRole.Orchestrator,
+                Math.Max(1, sourceCount),
+                duration
+            ), cancellationToken);
+        }
+
         return new TaskResult(task.AssignedRole, task.Description, output);
+    }
+
+    private static string BuildTaskPrompt(ExecutionTask task)
+    {
+        return $"""
+            Task: {task.Description}
+            Target file: {task.FileScope}
+
+            Return only the final content for this target file.
+            Do not include explanations, markdown, or code fences.
+            """;
+    }
+
+    private static string NormalizeGeneratedFileContent(string output, string fileScope)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return output;
+        }
+
+        var trimmed = output.Trim();
+        var extension = Path.GetExtension(fileScope).ToLowerInvariant();
+
+        // Prefer fenced code content when available.
+        var fenced = TryExtractCodeFence(trimmed);
+        if (!string.IsNullOrWhiteSpace(fenced))
+        {
+            trimmed = fenced!;
+        }
+
+        if (extension is ".csproj" or ".props" or ".targets" or ".xml")
+        {
+            var start = trimmed.IndexOf("<Project", StringComparison.OrdinalIgnoreCase);
+            var end = trimmed.LastIndexOf("</Project>", StringComparison.OrdinalIgnoreCase);
+            if (start >= 0 && end > start)
+            {
+                var length = end + "</Project>".Length - start;
+                return trimmed.Substring(start, length).Trim();
+            }
+        }
+
+        if (extension == ".cs")
+        {
+            var lines = trimmed.Split('\n');
+            var firstCodeLine = -1;
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i].TrimStart();
+                if (line.StartsWith("using ", StringComparison.Ordinal)
+                    || line.StartsWith("namespace ", StringComparison.Ordinal)
+                    || line.StartsWith("public ", StringComparison.Ordinal)
+                    || line.StartsWith("internal ", StringComparison.Ordinal)
+                    || line.StartsWith("file ", StringComparison.Ordinal)
+                    || line.StartsWith("class ", StringComparison.Ordinal)
+                    || line.StartsWith("record ", StringComparison.Ordinal)
+                    || line.StartsWith("Console.", StringComparison.Ordinal)
+                    || line.StartsWith("var ", StringComparison.Ordinal)
+                    || line.StartsWith("//", StringComparison.Ordinal)
+                    || line.StartsWith("/*", StringComparison.Ordinal))
+                {
+                    firstCodeLine = i;
+                    break;
+                }
+            }
+
+            if (firstCodeLine > 0)
+            {
+                return string.Join('\n', lines.Skip(firstCodeLine)).Trim();
+            }
+        }
+
+        return trimmed;
+    }
+
+    private static string? TryExtractCodeFence(string content)
+    {
+        var startFence = content.IndexOf("```", StringComparison.Ordinal);
+        if (startFence < 0)
+        {
+            return null;
+        }
+
+        var firstLineEnd = content.IndexOf('\n', startFence);
+        if (firstLineEnd < 0)
+        {
+            return null;
+        }
+
+        var endFence = content.IndexOf("```", firstLineEnd + 1, StringComparison.Ordinal);
+        if (endFence < 0)
+        {
+            return null;
+        }
+
+        var code = content.Substring(firstLineEnd + 1, endFence - firstLineEnd - 1);
+        return code.Trim();
     }
 
     private async Task<string> VerifyAsync(IReadOnlyCollection<TaskResult> results, string workspacePath, CancellationToken cancellationToken)
@@ -214,6 +429,20 @@ public sealed class OrchestrationService
 
     private async Task<string> ReviewAsync(string verificationSummary, string workspacePath, CancellationToken cancellationToken)
     {
+        // Check if BuildReviewer already ran as part of the plan
+        var existingReview = _outputStore?.GetLatestOutput(_currentSessionId ?? "unknown", AgentRole.BuildReviewer);
+        if (existingReview is not null)
+        {
+            // BuildReviewer already ran in plan, combine with verification summary
+            return $@"{verificationSummary}
+
+---
+
+## Quality Review
+
+{existingReview.Output}";
+        }
+
         // Run the BuildReviewer agent to analyze code quality and provide feedback
         // Get the final build output for analysis
         var (buildSuccess, buildOutput) = await RunBuildValidationAsync(workspacePath, cancellationToken);
@@ -240,6 +469,10 @@ Workspace: {workspacePath}
 Provide specific, actionable feedback on code quality, security, performance, and .NET best practices.";
 
         var reviewFeedback = await reviewer.RunAsync(reviewPrompt, workspacePath, cancellationToken);
+
+        // Store review output
+        _outputStore?.StoreOutput(_currentSessionId ?? "unknown", AgentRole.BuildReviewer, reviewFeedback, DateTimeOffset.UtcNow, "Reviewing build quality");
+
         await PublishAsync(new AgentStreamingEvent(DateTimeOffset.UtcNow, AgentRole.BuildReviewer, reviewFeedback), cancellationToken);
         await PublishAsync(new AgentCompletedEvent(DateTimeOffset.UtcNow, AgentRole.BuildReviewer, reviewFeedback), cancellationToken);
         await PublishAsync(new BuildReviewCompletedEvent(DateTimeOffset.UtcNow, reviewFeedback), cancellationToken);

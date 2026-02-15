@@ -27,12 +27,23 @@ public sealed class TemplateAgentClient : IAgentClient
     {
         var sb = new StringBuilder();
         var promptLower = prompt.ToLowerInvariant();
+
+        // More robust detection for research needs
         var isWebApp = promptLower.Contains("web") || promptLower.Contains("blazor") || promptLower.Contains("api") || promptLower.Contains("landing");
-        var isResearch = promptLower.Contains("search") || promptLower.Contains("research") || promptLower.Contains("online");
+        var isResearch = promptLower.Contains("search") || promptLower.Contains("research") || promptLower.Contains("online") ||
+                         promptLower.Contains("look up") || promptLower.Contains("find out") || promptLower.Contains("investigate");
 
         sb.AppendLine($"# Implementation Plan");
         sb.AppendLine();
-        sb.AppendLine($"Prompt: {prompt}");
+
+        // Extract key prompt (remove conversation context if present)
+        var displayPrompt = prompt;
+        if (prompt.Contains("Latest request:", StringComparison.OrdinalIgnoreCase))
+        {
+            var latestIndex = prompt.LastIndexOf("Latest request:", StringComparison.OrdinalIgnoreCase);
+            displayPrompt = prompt[(latestIndex + "Latest request:".Length)..].Trim();
+        }
+        sb.AppendLine($"Goal: {(displayPrompt.Length > 150 ? displayPrompt[..150] + "..." : displayPrompt)}");
         sb.AppendLine();
 
         var phaseIndex = 1;
@@ -57,6 +68,10 @@ public sealed class TemplateAgentClient : IAgentClient
             sb.AppendLine($"## Phase {phaseIndex++}: Styling & UX");
             sb.AppendLine($"- Task: Create application styles | Agent: Designer | File: styles.css");
         }
+
+        sb.AppendLine();
+        sb.AppendLine($"## Phase {phaseIndex++}: Quality Review");
+        sb.AppendLine($"- Task: Review code quality and best practices | Agent: BuildReviewer | File: review.md");
 
         return sb.ToString();
     }

@@ -23,7 +23,13 @@ public static class OrchestrationServiceFactory
     /// </summary>
     /// <param name="workspaceRoot">Root directory for workspaces. If null, uses default temp directory.</param>
     /// <param name="maxFixAttempts">Maximum number of fix attempts on build failure (0-10).</param>
-    public static OrchestrationService Create(string? workspaceRoot, int maxFixAttempts = 3)
+    /// <param name="autoApprovePlans">If true, automatically approves generated plans. Default: true for console apps.</param>
+    /// <param name="onPlanGenerated">Optional callback invoked when plan is generated.</param>
+    public static OrchestrationService Create(
+        string? workspaceRoot,
+        int maxFixAttempts = 3,
+        bool autoApprovePlans = true,
+        Action<string>? onPlanGenerated = null)
     {
         workspaceRoot ??= Path.Combine(Path.GetTempPath(), "orchestration-workspaces");
 
@@ -33,7 +39,19 @@ public static class OrchestrationServiceFactory
         var factory = new AgentFactory(store, client);
         var workspace = new WorkspaceManager(workspaceRoot);
 
-        return new OrchestrationService(factory, workspace, maxFixAttempts);
+        var service = new OrchestrationService(factory, workspace, maxFixAttempts);
+
+        // Set up plan approval callback
+        if (autoApprovePlans)
+        {
+            service.PlanApprovalCallback = (plan, markdown) =>
+            {
+                onPlanGenerated?.Invoke(markdown);
+                return Task.FromResult(true);
+            };
+        }
+
+        return service;
     }
 
     /// <summary>

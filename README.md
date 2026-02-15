@@ -1,4 +1,4 @@
-# ElBruno.AgentsOrchestration — Multi-Agent Orchestration Libraries
+# Agents Orchestration — Multi-Agent Orchestration Libraries
 
 [![NuGet](https://img.shields.io/nuget/v/ElBruno.AgentsOrchestration.Core.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ElBruno.AgentsOrchestration.Core.svg?style=flat-square&logo=nuget)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
@@ -7,7 +7,9 @@
 [![GitHub stars](https://img.shields.io/github/stars/elbruno/elbruno.agentsorchestration?style=social)](https://github.com/elbruno/elbruno.agentsorchestration)
 [![Twitter Follow](https://img.shields.io/twitter/follow/elbruno?style=social)](https://twitter.com/elbruno)
 
-A **.NET 10** library suite inspired by [Burke Holland's "Ultralight Orchestration" video](https://www.youtube.com/watch?v=-BhfcPseWFQ&t=586s), implementing the pattern in production-ready C#. Build software automatically using a coordinated team of **11 specialized AI agents**—including **Orchestrator**, **Planner**, **Coder**, **Designer**, **Researcher**, **Fixer**, **BuildReviewer**, **SecurityExpert**, **TestingExpert**, **DocumentationExpert**, and **SoftwareArchitect**—that work together to execute your prompts.
+A **.NET 10** library suite inspired by [Burke Holland's "Ultralight Orchestration" video](https://www.youtube.com/watch?v=-BhfcPseWFQ), implementing the pattern in production-ready C#, using **Microsoft Agent Framework** and **GitHub Copilot SDK** to create a powerful multi-agent orchestration system.
+
+Build software automatically using a coordinated team of **11 specialized AI agents**—including **Orchestrator**, **Planner**, **Coder**, **Designer**, **Researcher**, **Fixer**, **BuildReviewer**, **SecurityExpert**, **TestingExpert**, **DocumentationExpert**, and **SoftwareArchitect**—that work together to execute your prompts.
 
 ## Overview
 
@@ -40,29 +42,6 @@ The libraries provide a production-ready orchestration engine with:
   - **[ConsoleCompleteChat](samples/ConsoleCompleteChat)** — Full interactive multi-turn chat
   - **[ConsoleFlowTraces](samples/ConsoleFlowTraces)** — Flow tracing and call graph visualization
   - **[AspireApp](samples/AspireApp)** — Production-grade Blazor dashboard with REST API
-
----
-
-## The 11 AI Agents
-
-### Core Pipeline Agents (6-Step Orchestration)
-
-1. **🗺️ Planner** — Analyzes requirements and creates implementation plans
-2. **🧭 Orchestrator** — Coordinates agent communication and task delegation
-3. **💻 Coder** — Generates application code and business logic
-4. **🎨 Designer** — Creates user interfaces and visual components
-5. **🔧 Fixer** — Detects and corrects build errors automatically
-6. **📊 BuildReviewer** — Analyzes code quality, performance, and best practices
-
-### Specialist Agents (Extended Capabilities)
-
-1. **🔎 Researcher** — Searches external documentation and web resources
-2. **🔒 SecurityExpert** — Validates security and identifies vulnerabilities
-3. **✅ TestingExpert** — Generates comprehensive test suites
-4. **📚 DocumentationExpert** — Creates API docs, READMEs, and guides
-5. **🏗️ SoftwareArchitect** — Validates architecture and enforces design patterns
-
-👉 **[See all agents](docs/agents.md)** for detailed responsibilities and use cases.
 
 ---
 

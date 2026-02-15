@@ -1,36 +1,72 @@
 @page "/settings"
 @using ElBruno.AgentsOrchestration.Agents
 @inject AgentConfigurationStore Store
+@inject IJSRuntime JS
 
 <PageTitle>Settings</PageTitle>
 
 <h1>Agent Settings</h1>
 
-@foreach (var config in Configurations)
-{
-    <div class="card p-3 mb-3">
-        <h5>@config.Name</h5>
-        <label class="form-label">Model</label>
-        <input class="form-control mb-2" value="@config.Model" @onchange="e => UpdateModel(config.Role, e.Value?.ToString())" />
-        <label class="form-label">Instructions</label>
-        <textarea class="form-control mb-2" rows="4" @onchange="e => UpdateInstructions(config.Role, e.Value?.ToString())">@config.Instructions</textarea>
-        <button class="btn btn-outline-secondary btn-sm" @onclick="() => Reset(config.Role)">Reset Instructions</button>
-    </div>
-}
+<div class="card p-3 mb-3">
+    <h5>Orchestration Settings</h5>
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="autoApprovePlans" @bind="AutoApprovePlans"
+               @bind:after="SaveAutoApproveSetting">
+            <label class="form-check-label" for="autoApprovePlans">
+                Auto-approve execution plans (plan will be shown but executed immediately)
+            </label>
+        </div>
+        <small class="text-muted d-block mt-2">When enabled, generated plans will be displayed but automatically executed
+            without requiring approval.</small>
+        </div>
 
-<button class="btn btn-primary" @onclick="Save">Save</button>
-@if (Saved)
-{
-    <span class="ms-2 text-success">Saved</span>
-}
+        @foreach (var config in Configurations)
+        {
+            <div class="card p-3 mb-3">
+                <h5>@config.Name</h5>
+                <label class="form-label">Model</label>
+                <input class="form-control mb-2" value="@config.Model"
+                       @onchange="e => UpdateModel(config.Role, e.Value?.ToString())" />
+                <label class="form-label">Instructions</label>
+                <textarea class="form-control mb-2" rows="4"
+                          @onchange="e => UpdateInstructions(config.Role, e.Value?.ToString())">@config.Instructions</textarea>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => Reset(config.Role)">Reset Instructions</button>
+            </div>
+        }
+
+        <button class="btn btn-primary" @onclick="Save">Save</button>
+        @if (Saved)
+        {
+            <span class="ms-2 text-success">Saved</span>
+        }
 
 @code {
     private bool Saved;
+    private bool AutoApprovePlans = true;
     private List<AgentConfiguration> Configurations = [];
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Configurations = Store.GetAll().ToList();
+        
+        try
+        {
+            var setting = await JS.InvokeAsync<string?>("localStorage.getItem", "autoApprovePlans");
+            AutoApprovePlans = setting != "false"; // Default to true
+        }
+        catch
+        {
+            AutoApprovePlans = true;
+        }
+    }
+
+    private async Task SaveAutoApproveSetting()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", "autoApprovePlans", AutoApprovePlans.ToString().ToLower());
+        }
+        catch { }
     }
 
     private void UpdateModel(AgentRole role, string? model)
