@@ -416,3 +416,7 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Temporary agent-generated workspaces (must never be committed)
+/workspaces/
+/samples/workspaces/
