@@ -5,6 +5,7 @@
 @using ElBruno.AgentsOrchestration.Views
 @using AgentsOrchestration.Web.Models
 @inject IServiceScopeFactory ScopeFactory
+@inject AgentOutputStore OutputStore
 @inject IJSRuntime JS
 
 <PageTitle>Orchestration Dashboard</PageTitle>
@@ -31,9 +32,25 @@
             </div>
             
             <div style="flex: 1; overflow: hidden; position: relative;">
+                @* Plan Viewer *@
+                @if (_currentPlan is not null)
+                {
+                    <div class="plan-viewer-container">
+                        <PlanViewer Plan="_currentPlan" CurrentPhaseIndex="_currentPhaseIndex"
+                                    ShowActions="_planAwaitingApproval" IsExecuting="IsRunning && !_planAwaitingApproval"
+                                    OnApprove="ApprovePlan" OnCancel="RejectPlan" />
+                        
+                        @if (IsRunning && !_planAwaitingApproval && _currentPlan is not null)
+                        {
+                            <PhaseProgress TotalPhases="_currentPlan.Phases.Count" CurrentPhase="_currentPhaseIndex"
+                                           CurrentPhaseName="_currentPhaseName" />
+                        }
+                    </div>
+                }
+                
                 @if (ActiveTab == "graph")
                 {
-                    <AgentGraph Nodes="AgentNodes" Connections="AgentConnections" />
+                    <AgentGraph Nodes="AgentNodes" Connections="AgentConnections" OnNodeClicked="HandleNodeClick" />
                 }
                 else
                 {
@@ -69,6 +86,10 @@
     </section>
 </div>
 
+@* Agent Output Modal *@
+<AgentOutputModal IsVisible="_showAgentOutputModal" AgentRole="_selectedAgentRole" Output="_selectedAgentOutput"
+                  TaskDescription="_selectedAgentTask" OnClose="CloseAgentOutputModal" />
+
 @code {
     private bool IsRunning;
     private bool IsAppRunning;
@@ -88,6 +109,21 @@
     [
         new() { Name = "Orchestrator", Color = "#8b949e", Icon = "\U0001f3af" }
     ];
+    
+    // Plan approval workflow
+    private ExecutionPlan? _currentPlan;
+    private string? _currentPlanMarkdown;
+    private bool _planAwaitingApproval;
+    private TaskCompletionSource<bool>? _planApprovalTcs;
+    private int _currentPhaseIndex;
+    private string? _currentPhaseName;
+    private string? _currentSessionId;
+    
+    // Agent output modal
+    private bool _showAgentOutputModal;
+    private AgentRole _selectedAgentRole;
+    private string _selectedAgentOutput = "";
+    private string? _selectedAgentTask;
 
     private static readonly Dictionary<string, (string Color, string Icon)> AgentStyles =
 new(StringComparer.OrdinalIgnoreCase)
@@ -132,16 +168,33 @@ new(StringComparer.OrdinalIgnoreCase)
         var currentPrompt = Prompt;
         Prompt = string.Empty;
         IsRunning = true;
+        _planAwaitingApproval = false;
+        _currentPlan = null;
+        _currentPlanMarkdown = null;
+        _currentPhaseIndex = 0;
+        _currentPhaseName = null;
         ResetStatuses();
         _callGraph = new();
         _lastBuildResult = null;
         _buildSucceeded = false;
         _runCts = new CancellationTokenSource();
+        _currentSessionId = Guid.NewGuid().ToString("N");
 
         using var scope = ScopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<OrchestrationService>();
         _lastService = service;
-        _lastWorkspaceManager = scope.ServiceProvider.GetRequiredService<WorkspaceManager>();
+        _lastWorkspaceManager = scope.ServiceProvider.GetRequiredService<IWorkspace>() as WorkspaceManager;
+
+        // Set up plan approval callback
+        service.PlanApprovalCallback = async (plan, markdown) =>
+        {
+            _planApprovalTcs = new TaskCompletionSource<bool>();
+            _currentPlan = plan;
+            _currentPlanMarkdown = markdown;
+            _planAwaitingApproval = true;
+            await InvokeAsync(StateHasChanged);
+            return await _planApprovalTcs.Task;
+        };
 
         // Build context from full conversation
         var contextPrompt = ChatMessages.Count > 1
@@ -175,10 +228,50 @@ new(StringComparer.OrdinalIgnoreCase)
         finally
         {
             IsRunning = false;
+            _planAwaitingApproval = false;
             DeactivateAllConnections();
             _runCts.Dispose();
             _runCts = null;
         }
+    }
+    
+    private async Task ApprovePlan()
+    {
+        _planAwaitingApproval = false;
+        _planApprovalTcs?.SetResult(true);
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task RejectPlan()
+    {
+        _planAwaitingApproval = false;
+        _planApprovalTcs?.SetResult(false);
+        _runCts?.Cancel();
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task HandleNodeClick(string nodeName)
+    {
+        if (string.IsNullOrEmpty(_currentSessionId)) return;
+        
+        if (Enum.TryParse<AgentRole>(nodeName, ignoreCase: true, out var role))
+        {
+            var output = OutputStore.GetLatestOutput(_currentSessionId, role);
+            if (output is not null)
+            {
+                _selectedAgentRole = role;
+                _selectedAgentOutput = output.Output;
+                _selectedAgentTask = output.TaskDescription;
+                _showAgentOutputModal = true;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+    
+    private async Task CloseAgentOutputModal()
+    {
+        _showAgentOutputModal = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     private Task CancelAsync()
@@ -193,6 +286,11 @@ new(StringComparer.OrdinalIgnoreCase)
         Activities.Clear();
         _buildSucceeded = false;
         _callGraph = new();
+        _currentPlan = null;
+        _currentPlanMarkdown = null;
+        _currentPhaseIndex = 0;
+        _currentPhaseName = null;
+        _planAwaitingApproval = false;
         ResetStatuses();
         DeactivateAllConnections();
     }
@@ -251,6 +349,9 @@ new(StringComparer.OrdinalIgnoreCase)
         var message = evt switch
         {
             OrchestrationStartedEvent started => $"Started: {started.Prompt}",
+            PlanGeneratedEvent planGen => "📋 Plan generated - awaiting approval",
+            PlanApprovedEvent approved => approved.AutoApproved ? "✅ Plan auto-approved" : "✅ Plan approved - executing",
+            PhaseStartedEvent phaseStart => $"Phase {phaseStart.PhaseIndex}: {phaseStart.PhaseName}",
             AgentActivatedEvent activated => $"{activated.Role} active: {activated.TaskDescription}",
             AgentCompletedEvent completed => $"{completed.Role} completed",
             FileCreatedEvent file => $"File updated: {file.FilePath}",
@@ -272,7 +373,18 @@ new(StringComparer.OrdinalIgnoreCase)
 
         Activities.Add(new ActivityItem(evt.Timestamp, type, message));
 
-        if (evt is AgentActivatedEvent activated2)
+        // Handle plan events
+        if (evt is PlanGeneratedEvent planGenerated)
+        {
+            // Plan is already set by the callback, just update UI
+            _ = InvokeAsync(StateHasChanged);
+        }
+        else if (evt is PhaseStartedEvent phaseStarted)
+        {
+            _currentPhaseIndex = phaseStarted.PhaseIndex;
+            _currentPhaseName = phaseStarted.PhaseName;
+        }
+        else if (evt is AgentActivatedEvent activated2)
         {
             SetNodeStatus(activated2.Role.ToString(), "active", message);
             ActivateConnection(activated2.Role.ToString());

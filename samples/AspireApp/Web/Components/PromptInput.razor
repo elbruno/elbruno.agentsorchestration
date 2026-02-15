@@ -10,36 +10,48 @@
             </div>
         }
     </div>
+    
+    <!-- Bottom toolbar for templates and actions -->
+    <div class="chat-toolbar">
+        <select class="form-select form-select-sm" style="max-width: 250px;" @onchange="OnTemplateSelected" disabled="@IsRunning">
+            <option selected disabled>📝 Load template...</option>
+            @foreach (var t in Templates)
+            {
+                <option value="@t.Prompt">@t.Name</option>
+            }
+        </select>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="SendTemplateToChat" disabled="@(IsRunning || string.IsNullOrWhiteSpace(CurrentPrompt))">
+            💬 Paste to Chat
+        </button>
+        @if (Messages.Any())
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearClicked" disabled="@IsRunning">
+                🗑️ Clear
+            </button>
+        }
+    </div>
+    
+    <!-- Main input area - always at bottom -->
     <div class="chat-input-area">
         <textarea class="chat-input" rows="2" placeholder="Describe what you want to build..."
                   @bind="CurrentPrompt" @bind:event="oninput"
                   @onkeydown="HandleKeyDown"
                   disabled="@IsRunning"></textarea>
-        <div class="chat-actions">
-            <button class="btn btn-primary btn-sm" @onclick="RunClicked" disabled="@(IsRunning || string.IsNullOrWhiteSpace(Prompt))">
+        <div class="chat-send-actions">
+            <button class="btn btn-primary" @onclick="RunClicked" disabled="@(IsRunning || string.IsNullOrWhiteSpace(Prompt))">
                 @if (IsRunning)
                 {
-                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <span>Running...</span>
                 }
                 else
                 {
-                    <span>Send</span>
+                    <span>🚀 Send</span>
                 }
             </button>
-            <select class="form-select form-select-sm ms-2" style="width: auto; display: inline-block; max-width: 200px;" @onchange="OnTemplateSelected" disabled="@IsRunning">
-                <option selected disabled>Load a template...</option>
-                @foreach (var t in Templates)
-                {
-                    <option value="@t.Prompt">@t.Name</option>
-                }
-            </select>
             @if (IsRunning)
             {
-                <button class="btn btn-outline-danger btn-sm" @onclick="CancelClicked">Cancel</button>
-            }
-            @if (Messages.Any())
-            {
-                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearClicked" disabled="@IsRunning">Clear</button>
+                <button class="btn btn-outline-danger btn-sm" @onclick="CancelClicked">❌ Cancel</button>
             }
         </div>
     </div>
@@ -69,9 +81,13 @@
         if (e.Value is string s && !string.IsNullOrEmpty(s))
         {
             CurrentPrompt = s;
-            // Optionally clear the selection so the user can re-select the same template if they clear the text manually
-            // But for now, simple assignment is enough.
         }
+    }
+
+    private void SendTemplateToChat()
+    {
+        // Template is already in CurrentPrompt from selection
+        // This button is for explicit action if user wants to modify before sending
     }
 
     private record TemplateInfo(string Name, string Prompt);

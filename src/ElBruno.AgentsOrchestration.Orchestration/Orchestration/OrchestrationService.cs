@@ -8,26 +8,60 @@ public sealed class OrchestrationService
     private readonly AgentFactory _agentFactory;
     private readonly IWorkspace _workspace;
     private readonly int _maxFixAttempts;
+    private readonly AgentOutputStore? _outputStore;
+    private string? _currentSessionId;
 
-    public OrchestrationService(AgentFactory agentFactory, IWorkspace workspace, int maxFixAttempts = 3)
+    public OrchestrationService(
+        AgentFactory agentFactory,
+        IWorkspace workspace,
+        int maxFixAttempts = 3,
+        AgentOutputStore? outputStore = null)
     {
         _agentFactory = agentFactory;
         _workspace = workspace;
+        _outputStore = outputStore;
         _maxFixAttempts = Math.Clamp(maxFixAttempts, 0, 10);
     }
 
     public Channel<OrchestrationEvent> Events { get; } = Channel.CreateBounded<OrchestrationEvent>(
         new BoundedChannelOptions(1000) { FullMode = BoundedChannelFullMode.DropOldest });
 
+    /// <summary>
+    /// Callback invoked when a plan is generated. Return true to approve and continue, false to cancel.
+    /// If null, plan is auto-approved.
+    /// </summary>
+    public Func<ExecutionPlan, string, Task<bool>>? PlanApprovalCallback { get; set; }
+
     public async Task<OrchestrationResult> RunAsync(OrchestrationRequest request, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Prompt, nameof(request.Prompt));
 
+        _currentSessionId = Guid.NewGuid().ToString("N");
         await PublishAsync(new OrchestrationStartedEvent(DateTimeOffset.UtcNow, request.Prompt), cancellationToken);
         try
         {
             var workspacePath = _workspace.CreateWorkspace(request.Prompt);
-            var plan = await BuildPlanAsync(request.Prompt, workspacePath, cancellationToken);
+            var (plan, planMarkdown) = await BuildPlanAsync(request.Prompt, workspacePath, cancellationToken);
+
+            // Emit plan generated event
+            await PublishAsync(new PlanGeneratedEvent(DateTimeOffset.UtcNow, planMarkdown, plan), cancellationToken);
+
+            // Plan approval workflow
+            var approved = true;
+            if (PlanApprovalCallback is not null)
+            {
+                approved = await PlanApprovalCallback(plan, planMarkdown);
+            }
+
+            await PublishAsync(new PlanApprovedEvent(DateTimeOffset.UtcNow, PlanApprovalCallback is null), cancellationToken);
+
+            if (!approved)
+            {
+                var cancelledResult = new OrchestrationResult("Plan was not approved. Orchestration cancelled.", [], workspacePath);
+                await PublishAsync(new OrchestrationCompletedEvent(DateTimeOffset.UtcNow, cancelledResult), cancellationToken);
+                return cancelledResult;
+            }
+
             var results = new List<TaskResult>();
 
             for (var i = 0; i < plan.Phases.Count; i++)
@@ -55,16 +89,20 @@ public sealed class OrchestrationService
         }
     }
 
-    private async Task<ExecutionPlan> BuildPlanAsync(string prompt, string workspacePath, CancellationToken cancellationToken)
+    private async Task<(ExecutionPlan Plan, string PlanMarkdown)> BuildPlanAsync(string prompt, string workspacePath, CancellationToken cancellationToken)
     {
         var planner = _agentFactory.CreateSession(AgentRole.Planner);
         await PublishAsync(new AgentActivatedEvent(DateTimeOffset.UtcNow, AgentRole.Planner, "Building execution plan", planner.Configuration.Instructions.Split('\n').FirstOrDefault() ?? ""), cancellationToken);
 
         var plannerOutput = await planner.RunAsync(prompt, workspacePath, cancellationToken);
+
+        // Store planner output
+        _outputStore?.StoreOutput(_currentSessionId ?? "unknown", AgentRole.Planner, plannerOutput, DateTimeOffset.UtcNow, "Building execution plan");
+
         await PublishAsync(new AgentInstructionUpdateEvent(DateTimeOffset.UtcNow, AgentRole.Planner, plannerOutput), cancellationToken);
         await PublishAsync(new AgentCompletedEvent(DateTimeOffset.UtcNow, AgentRole.Planner, plannerOutput), cancellationToken);
 
-        return ParsePlan(plannerOutput, prompt);
+        return (ParsePlan(plannerOutput, prompt), plannerOutput);
     }
 
     internal static ExecutionPlan ParsePlan(string plannerOutput, string prompt)
@@ -147,11 +185,28 @@ public sealed class OrchestrationService
 
     private async Task<TaskResult> ExecuteTaskAsync(ExecutionTask task, string workspacePath, CancellationToken cancellationToken)
     {
+        // Emit research-specific events for Researcher agent
+        if (task.AssignedRole == AgentRole.Researcher)
+        {
+            await PublishAsync(new ResearchRequestedEvent(
+                DateTimeOffset.UtcNow,
+                AgentRole.Orchestrator,
+                task.Description,
+                ResearchScope.All
+            ), cancellationToken);
+        }
+
         var session = _agentFactory.CreateSession(task.AssignedRole);
         var instructionPreview = string.Join('\n', session.Configuration.Instructions.Split('\n').Take(2));
         await PublishAsync(new AgentActivatedEvent(DateTimeOffset.UtcNow, task.AssignedRole, task.Description, instructionPreview), cancellationToken);
 
+        var startTime = DateTimeOffset.UtcNow;
         var output = await session.RunAsync(task.Description, workspacePath, cancellationToken);
+        var duration = DateTimeOffset.UtcNow - startTime;
+
+        // Store agent output
+        _outputStore?.StoreOutput(_currentSessionId ?? "unknown", task.AssignedRole, output, DateTimeOffset.UtcNow, task.Description);
+
         await PublishAsync(new AgentStreamingEvent(DateTimeOffset.UtcNow, task.AssignedRole, output), cancellationToken);
 
         var fullPath = Path.GetFullPath(Path.Combine(workspacePath, task.FileScope.Replace('/', Path.DirectorySeparatorChar)));
@@ -165,6 +220,19 @@ public sealed class OrchestrationService
         await File.WriteAllTextAsync(fullPath, output, cancellationToken);
         await PublishAsync(new FileCreatedEvent(DateTimeOffset.UtcNow, task.FileScope), cancellationToken);
         await PublishAsync(new AgentCompletedEvent(DateTimeOffset.UtcNow, task.AssignedRole, output), cancellationToken);
+
+        // Emit research completed event for Researcher agent
+        if (task.AssignedRole == AgentRole.Researcher)
+        {
+            // Parse source count from output (simplified - in real implementation, parse markdown)
+            var sourceCount = output.Split("##").Length - 1;
+            await PublishAsync(new ResearchCompletedEvent(
+                DateTimeOffset.UtcNow,
+                AgentRole.Orchestrator,
+                Math.Max(1, sourceCount),
+                duration
+            ), cancellationToken);
+        }
 
         return new TaskResult(task.AssignedRole, task.Description, output);
     }
@@ -214,6 +282,20 @@ public sealed class OrchestrationService
 
     private async Task<string> ReviewAsync(string verificationSummary, string workspacePath, CancellationToken cancellationToken)
     {
+        // Check if BuildReviewer already ran as part of the plan
+        var existingReview = _outputStore?.GetLatestOutput(_currentSessionId ?? "unknown", AgentRole.BuildReviewer);
+        if (existingReview is not null)
+        {
+            // BuildReviewer already ran in plan, combine with verification summary
+            return $@"{verificationSummary}
+
+---
+
+## Quality Review
+
+{existingReview.Output}";
+        }
+
         // Run the BuildReviewer agent to analyze code quality and provide feedback
         // Get the final build output for analysis
         var (buildSuccess, buildOutput) = await RunBuildValidationAsync(workspacePath, cancellationToken);
@@ -240,6 +322,10 @@ Workspace: {workspacePath}
 Provide specific, actionable feedback on code quality, security, performance, and .NET best practices.";
 
         var reviewFeedback = await reviewer.RunAsync(reviewPrompt, workspacePath, cancellationToken);
+
+        // Store review output
+        _outputStore?.StoreOutput(_currentSessionId ?? "unknown", AgentRole.BuildReviewer, reviewFeedback, DateTimeOffset.UtcNow, "Reviewing build quality");
+
         await PublishAsync(new AgentStreamingEvent(DateTimeOffset.UtcNow, AgentRole.BuildReviewer, reviewFeedback), cancellationToken);
         await PublishAsync(new AgentCompletedEvent(DateTimeOffset.UtcNow, AgentRole.BuildReviewer, reviewFeedback), cancellationToken);
         await PublishAsync(new BuildReviewCompletedEvent(DateTimeOffset.UtcNow, reviewFeedback), cancellationToken);

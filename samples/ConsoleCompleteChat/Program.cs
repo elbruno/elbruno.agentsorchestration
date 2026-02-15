@@ -102,6 +102,17 @@ async Task RunOrchestrationAsync(string prompt)
 {
     var service = new OrchestrationService(factory, new WorkspaceManager(rootPath));
 
+    // Auto-approve plans in console mode
+    service.PlanApprovalCallback = (plan, markdown) =>
+    {
+        Console.WriteLine("\n📋 Plan Generated:");
+        Console.WriteLine(new string('─', 60));
+        Console.WriteLine(markdown);
+        Console.WriteLine(new string('─', 60));
+        Console.WriteLine("✅ Auto-approving plan...\n");
+        return Task.FromResult(true);
+    };
+
     Console.WriteLine("Running orchestration...");
     Console.WriteLine(new string('─', 60));
 

@@ -58,6 +58,10 @@ public sealed class TemplateAgentClient : IAgentClient
             sb.AppendLine($"- Task: Create application styles | Agent: Designer | File: styles.css");
         }
 
+        sb.AppendLine();
+        sb.AppendLine($"## Phase {phaseIndex++}: Quality Review");
+        sb.AppendLine($"- Task: Review code quality and best practices | Agent: BuildReviewer | File: review.md");
+
         return sb.ToString();
     }
 

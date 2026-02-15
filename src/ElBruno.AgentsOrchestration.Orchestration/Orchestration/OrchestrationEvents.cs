@@ -5,6 +5,8 @@ namespace ElBruno.AgentsOrchestration.Orchestration;
 public abstract record OrchestrationEvent(DateTimeOffset Timestamp);
 
 public sealed record OrchestrationStartedEvent(DateTimeOffset Timestamp, string Prompt) : OrchestrationEvent(Timestamp);
+public sealed record PlanGeneratedEvent(DateTimeOffset Timestamp, string PlanMarkdown, ExecutionPlan Plan) : OrchestrationEvent(Timestamp);
+public sealed record PlanApprovedEvent(DateTimeOffset Timestamp, bool AutoApproved) : OrchestrationEvent(Timestamp);
 public sealed record PhaseStartedEvent(DateTimeOffset Timestamp, int PhaseIndex, string PhaseName) : OrchestrationEvent(Timestamp);
 public sealed record AgentActivatedEvent(DateTimeOffset Timestamp, AgentRole Role, string TaskDescription, string InstructionPreview) : OrchestrationEvent(Timestamp);
 public sealed record AgentStreamingEvent(DateTimeOffset Timestamp, AgentRole Role, string DeltaContent) : OrchestrationEvent(Timestamp);

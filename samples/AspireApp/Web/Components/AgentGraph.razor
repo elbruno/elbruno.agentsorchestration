@@ -35,7 +35,7 @@
                             : node.Status == "complete" ? "#3fb950"
                             : "#30363d";
             var fillColor = node.Status == "active" ? "rgba(88,166,255,0.06)" : "#1c2128";
-            <g>
+            <g class="agent-node-clickable" @onclick="@(() => OnNodeClick(node.Name))">
                 <rect x="@(pos.x - w / 2)" y="@(pos.y - h / 2)" width="@w" height="@h" class="agent-node-bg @statusClass"
                       fill="@fillColor" stroke="@strokeColor" />
 
@@ -60,6 +60,12 @@
 @code {
     [Parameter] public IReadOnlyCollection<AgentNodeState> Nodes { get; set; } = [];
     [Parameter] public IReadOnlyCollection<AgentConnection> Connections { get; set; } = [];
+    [Parameter] public EventCallback<string> OnNodeClicked { get; set; }
+
+    private async Task OnNodeClick(string nodeName)
+    {
+        await OnNodeClicked.InvokeAsync(nodeName);
+    }
 
     private static (int x, int y) GetNodePosition(string name) => name switch
     {
