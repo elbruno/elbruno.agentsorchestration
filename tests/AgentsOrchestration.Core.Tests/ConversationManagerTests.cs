@@ -242,4 +242,161 @@ public sealed class ConversationManagerTests
         updated.History[0].UserPrompt.Should().Be("First prompt");
         updated.History[1].UserPrompt.Should().Be("Second prompt");
     }
+
+    [Fact]
+    public void ConversationSession_EstimateTokenCount_EmptyHistory()
+    {
+        var session = new ConversationSession("sess-1", "/workspace", [], DateTimeOffset.UtcNow);
+
+        var tokenCount = session.EstimateTokenCount();
+
+        tokenCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void ConversationSession_EstimateTokenCount_WithHistory()
+    {
+        // "Create app" = 10 chars, "App created" = 11 chars, total = 21 chars → ~5 tokens
+        var turn1 = new ConversationTurn(
+            "Create app",
+            new OrchestrationResult("App created", [], "/workspace"),
+            DateTimeOffset.UtcNow);
+
+        var history = (IReadOnlyList<ConversationTurn>)[turn1];
+        var session = new ConversationSession("sess-1", "/workspace", history, DateTimeOffset.UtcNow);
+
+        var tokenCount = session.EstimateTokenCount();
+
+        // 21 chars / 4 = ~5 tokens
+        tokenCount.Should().Be(5);
+    }
+
+    [Fact]
+    public void ConversationSession_TrimHistory_AlreadyWithinBudget()
+    {
+        var turn1 = new ConversationTurn(
+            "Test",
+            new OrchestrationResult("Result", [], "/workspace"),
+            DateTimeOffset.UtcNow);
+
+        var history = (IReadOnlyList<ConversationTurn>)[turn1];
+        var session = new ConversationSession("sess-1", "/workspace", history, DateTimeOffset.UtcNow);
+
+        var trimmed = session.TrimHistory(100);
+
+        trimmed.History.Should().HaveCount(1);
+        trimmed.Should().Be(session); // No change
+    }
+
+    [Fact]
+    public void ConversationSession_TrimHistory_PreservesFirstTurn()
+    {
+        var turns = new List<ConversationTurn>
+        {
+            new("First prompt with many characters to increase token count",
+                new OrchestrationResult("First long result with many characters", [], "/workspace"),
+                DateTimeOffset.UtcNow),
+            new("Second prompt",
+                new OrchestrationResult("Second result", [], "/workspace"),
+                DateTimeOffset.UtcNow),
+            new("Third prompt",
+                new OrchestrationResult("Third result", [], "/workspace"),
+                DateTimeOffset.UtcNow)
+        };
+
+        var session = new ConversationSession("sess-1", "/workspace", turns, DateTimeOffset.UtcNow);
+
+        // Very low budget should keep at least first turn
+        var trimmed = session.TrimHistory(1);
+
+        trimmed.History.Should().NotBeEmpty();
+        trimmed.History[0].UserPrompt.Should().Be("First prompt with many characters to increase token count");
+    }
+
+    [Fact]
+    public void ConversationSession_TrimHistory_RemovesOldestFirst()
+    {
+        var turns = new List<ConversationTurn>
+        {
+            new("First",
+                new OrchestrationResult("Result 1", [], "/workspace"),
+                DateTimeOffset.UtcNow),
+            new("Second prompt that gets removed",
+                new OrchestrationResult("Result 2", [], "/workspace"),
+                DateTimeOffset.UtcNow),
+            new("Third",
+                new OrchestrationResult("Result 3", [], "/workspace"),
+                DateTimeOffset.UtcNow)
+        };
+
+        var session = new ConversationSession("sess-1", "/workspace", turns, DateTimeOffset.UtcNow);
+
+        // Mid-range budget: should keep first and last, drop middle
+        var trimmed = session.TrimHistory(20);
+
+        trimmed.History.Should().Contain(t => t.UserPrompt == "First");
+        trimmed.History.Should().Contain(t => t.UserPrompt == "Third");
+    }
+
+    [Fact]
+    public void ConversationSession_TrimHistory_ThrowsOnInvalidMaxTokens()
+    {
+        var session = new ConversationSession("sess-1", "/workspace", [], DateTimeOffset.UtcNow);
+
+        var action = () => session.TrimHistory(0);
+
+        action.Should().Throw<ArgumentException>()
+            .WithMessage("*Max tokens must be positive*");
+    }
+
+    [Fact]
+    public void ConversationSession_TrimToLastNTurns_KeepsCorrectCount()
+    {
+        var turns = new List<ConversationTurn>
+        {
+            new("Turn 1", new OrchestrationResult("R1", [], "/workspace"), DateTimeOffset.UtcNow),
+            new("Turn 2", new OrchestrationResult("R2", [], "/workspace"), DateTimeOffset.UtcNow),
+            new("Turn 3", new OrchestrationResult("R3", [], "/workspace"), DateTimeOffset.UtcNow),
+            new("Turn 4", new OrchestrationResult("R4", [], "/workspace"), DateTimeOffset.UtcNow),
+            new("Turn 5", new OrchestrationResult("R5", [], "/workspace"), DateTimeOffset.UtcNow)
+        };
+
+        var session = new ConversationSession("sess-1", "/workspace", turns, DateTimeOffset.UtcNow);
+
+        var trimmed = session.TrimToLastNTurns(3);
+
+        // Should keep: Turn 1 (always), Turn 4, Turn 5
+        trimmed.History.Should().HaveCount(3);
+        trimmed.History[0].UserPrompt.Should().Be("Turn 1");
+        trimmed.History[1].UserPrompt.Should().Be("Turn 4");
+        trimmed.History[2].UserPrompt.Should().Be("Turn 5");
+    }
+
+    [Fact]
+    public void ConversationSession_TrimToLastNTurns_AlreadyWithinLimit()
+    {
+        var turns = new List<ConversationTurn>
+        {
+            new("Turn 1", new OrchestrationResult("R1", [], "/workspace"), DateTimeOffset.UtcNow),
+            new("Turn 2", new OrchestrationResult("R2", [], "/workspace"), DateTimeOffset.UtcNow)
+        };
+
+        var session = new ConversationSession("sess-1", "/workspace", turns, DateTimeOffset.UtcNow);
+
+        var trimmed = session.TrimToLastNTurns(5);
+
+        trimmed.History.Should().HaveCount(2);
+        trimmed.Should().Be(session);
+    }
+
+    [Fact]
+    public void ConversationSession_TrimToLastNTurns_ThrowsOnInvalidN()
+    {
+        var session = new ConversationSession("sess-1", "/workspace", [], DateTimeOffset.UtcNow);
+
+        var action = () => session.TrimToLastNTurns(0);
+
+        action.Should().Throw<ArgumentException>()
+            .WithMessage("*Must keep at least 1 turn*");
+    }
 }

@@ -1,14 +1,15 @@
 # Samples Overview
 
-This repository includes three samples that demonstrate the **ElBruno.AgentsOrchestration** libraries at different levels of complexity. Choose the one that matches your learning goals.
+This repository includes four samples that demonstrate the **ElBruno.AgentsOrchestration** libraries at different levels of complexity. Choose the one that matches your learning goals.
 
 ## Quick Comparison
 
 | Sample | Complexity | Best For | Key Features |
 |--------|-----------|----------|--------------|
-| **[ConsoleSimple](../samples/ConsoleSimple)** | ⭐ Minimal | Learning the basics | Simplified 1-line setup, event streaming, weather app |
+| **[ConsoleSimple](../samples/ConsoleSimple)** | ⭐ Minimal | Learning the basics | Factory method setup, event streaming, single orchestration |
 | **[ConsoleCompleteChat](../samples/ConsoleCompleteChat)** | ⭐⭐ Intermediate | Interactive use | Multi-turn chat, session management, app launcher |
-| **[AspireApp](../samples/AspireApp)** | ⭐⭐⭐ Advanced | Production patterns | Blazor UI, REST API, health checks, tracing |
+| **[ConsoleFlowTraces](../samples/ConsoleFlowTraces)** | ⭐⭐ Intermediate | Debugging & visualization | Agent flow tracking, verbose event logging, ASCII diagrams |
+| **[AspireApp](../samples/AspireApp)** | ⭐⭐⭐ Advanced | Production patterns | Blazor UI, REST API, SignalR, health checks, tracing |
 
 ---
 
@@ -98,6 +99,71 @@ dotnet run --project samples/ConsoleCompleteChat
 
 ---
 
+## ConsoleFlowTraces — Agent Flow Visualization
+
+**Location:** `samples/ConsoleFlowTraces/`
+
+**Purpose:** Demonstrate how to track, visualize, and debug agent interactions with detailed event logging and ASCII flow diagrams.
+
+**What it does:**
+
+- **Verbose event logging** — Displays detailed information for all orchestration events with color coding
+- **Agent flow tracking** — Records agent calls and builds an interaction graph
+- **ASCII flow diagram** — Visualizes the agent call sequence at the end
+- **Research and review tracking** — Shows when specialist agents (Researcher, BuildReviewer) are activated
+- **Performance metrics** — Displays timing information and event counts
+
+**When to use this:**
+
+- You want to understand how agents coordinate
+- You're debugging orchestration issues
+- You need to visualize the agent interaction flow
+- You want detailed logs of every step in the pipeline
+
+**Run it:**
+
+```bash
+dotnet run --project samples/ConsoleFlowTraces
+```
+
+**Key features:**
+
+- **Color-coded events** — Different colors for different event types (phases, agents, files, builds, errors)
+- **Detailed timestamps** — Every event is timestamped with `[HH:mm:ss]` format
+- **Agent call tracking** — Uses `AgentCallGraph` to record all agent interactions
+- **Flow visualization** — Produces an ASCII diagram showing agent coordination patterns
+- **Research event tracking** — Tracks `ResearchRequestedEvent` and `ResearchCompletedEvent` for Researcher agent
+- **Build review tracking** — Monitors `BuildReviewStartedEvent` and `BuildReviewCompletedEvent`
+- **Fix attempt tracking** — Shows detailed information for each self-healing attempt
+
+**Key files:**
+
+- [Program.cs](../samples/ConsoleFlowTraces/Program.cs) — Full implementation with verbose event handling
+- Uses `AgentCallGraph` from the Views library
+- Uses `OrchestrationServiceFactory.Create()` for simplified setup
+
+**Output example:**
+
+```
+[19:30:15] 📌 PHASE START      : Phase 1: PROJECT SETUP
+[19:30:15] 🤖 AGENT ACTIVE     : Planner           | Task: Create execution plan
+[19:30:15] 📝 PLAN UPDATE      : Planner updated execution plan
+[19:30:16] 🤖 AGENT ACTIVE     : Coder             | Task: Create Program.cs
+[19:30:16] 📄 FILE CREATED     : Program.cs
+[19:30:17] 🔨 BUILD SUCCESS    : Project compiled successfully.
+[19:30:17] 🏁 FINISHED         : All tasks completed.
+
+📊 Agent Interaction Flow:
+Orchestrator → Planner: Create execution plan
+Orchestrator → Coder: Create Program.cs
+Orchestrator → Coder: Create project.csproj
+Orchestrator → Designer: Create styles.css
+```
+
+This sample is perfect for learning how the orchestration engine works under the hood.
+
+---
+
 ## AspireApp — Production Dashboard
 
 **Location:** `samples/AspireApp/`
@@ -182,6 +248,10 @@ dotnet run --project samples/AspireApp/AppHost
 
 → Use **ConsoleCompleteChat** as a reference. It shows conversation memory and session management.
 
+### I want to visualize and debug agent interactions
+
+→ Try **ConsoleFlowTraces**. It shows detailed event logging and agent flow diagrams.
+
 ### I'm building a web app or deploying to production
 
 → Use **AspireApp** as your template. It includes everything: UI, API, health checks, tracing.
@@ -194,25 +264,30 @@ dotnet run --project samples/AspireApp/AppHost
 
 ## Common Patterns Across All Samples
 
-All three samples follow the same core initialization pattern:
+All four samples follow the same core initialization pattern:
 
 ```csharp
-// 1. Load agent configurations
+// Option 1: Simplified factory method (ConsoleSimple, ConsoleFlowTraces)
+var service = OrchestrationServiceFactory.Create();
+
+// Option 2: Manual setup (ConsoleCompleteChat)
 var store = new AgentConfigurationStore(InstructionLoader.LoadInstructions());
-
-// 2. Create the agent client (LLM abstraction)
 var client = new TemplateAgentClient();
-
-// 3. Create the agent factory
 var factory = new AgentFactory(store, client);
-
-// 4. Create the workspace manager
 var workspace = new WorkspaceManager(rootPath);
-
-// 5. Create the orchestration service
 var service = new OrchestrationService(factory, workspace);
 
-// 6. Run an orchestration
+// Option 3: Dependency injection (AspireApp)
+builder.Services.AddOrchestration(options =>
+{
+    options.WorkspaceRoot = "./workspaces";
+});
+```
+
+The orchestration flow is identical across all samples:
+
+```csharp
+// Run an orchestration
 var result = await service.RunAsync(
     new OrchestrationRequest(prompt),
     CancellationToken.None
@@ -221,9 +296,10 @@ var result = await service.RunAsync(
 
 The only differences are:
 
-- **ConsoleSimple** — runs once and exits
-- **ConsoleCompleteChat** — wraps in a loop with session management
-- **AspireApp** — runs as a web service with dependency injection
+- **ConsoleSimple** — runs once and exits, minimal event logging
+- **ConsoleCompleteChat** — wraps in a loop with session management and conversation memory
+- **ConsoleFlowTraces** — verbose event logging with agent flow visualization
+- **AspireApp** — runs as a web service with Blazor UI and SignalR streaming
 
 ---
 
