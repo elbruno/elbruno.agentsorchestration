@@ -1,0 +1,85 @@
+@using ElBruno.AgentsOrchestration.Agents
+
+@if (IsVisible)
+{
+    <div class="modal-backdrop" @onclick="Close"></div>
+    <div class="agent-output-modal">
+        <div class="modal-header">
+            <h3>
+                <span style="color: @GetAgentColor(AgentRole)">
+                    @GetAgentIcon(AgentRole) @AgentRole
+                </span>
+            </h3>
+            <button class="btn-close" @onclick="Close">×</button>
+        </div>
+        <div class="modal-body">
+            @if (!string.IsNullOrEmpty(TaskDescription))
+            {
+                <div class="task-description">
+                    <strong>Task:</strong> @TaskDescription
+                </div>
+            }
+            <div class="output-content">
+                <pre><code>@Output</code></pre>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="CopyOutput">
+                📋 Copy to Clipboard
+            </button>
+            <button class="btn btn-sm btn-primary" @onclick="Close">Close</button>
+        </div>
+    </div>
+}
+
+@inject IJSRuntime JS
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public AgentRole AgentRole { get; set; }
+    [Parameter] public string Output { get; set; } = "";
+    [Parameter] public string? TaskDescription { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task CopyOutput()
+    {
+        await JS.InvokeVoidAsync("copyToClipboard", Output);
+    }
+
+    private static string GetAgentColor(AgentRole role) => role.ToString() switch
+    {
+        "Orchestrator" => "#8b949e",
+        "Planner" => "#58a6ff",
+        "Coder" => "#3fb950",
+        "Designer" => "#f778ba",
+        "Researcher" => "#6610f2",
+        "Fixer" => "#fd7e14",
+        "BuildReviewer" => "#20c997",
+        "SecurityExpert" => "#dc3545",
+        "TestingExpert" => "#17a2b8",
+        "DocumentationExpert" => "#6f42c1",
+        "SoftwareArchitect" => "#fd7e14",
+        _ => "#6c757d"
+    };
+
+    private static string GetAgentIcon(AgentRole role) => role.ToString() switch
+    {
+        "Orchestrator" => "🎯",
+        "Planner" => "📋",
+        "Coder" => "💻",
+        "Designer" => "🎨",
+        "Researcher" => "🔍",
+        "Fixer" => "🔧",
+        "BuildReviewer" => "🧠",
+        "SecurityExpert" => "🔒",
+        "TestingExpert" => "✅",
+        "DocumentationExpert" => "📚",
+        "SoftwareArchitect" => "🏗️",
+        _ => "🤖"
+    };
+}

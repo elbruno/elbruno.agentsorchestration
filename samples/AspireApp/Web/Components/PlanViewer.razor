@@ -1,0 +1,144 @@
+@using ElBruno.AgentsOrchestration.Orchestration
+
+<div class="plan-viewer @(IsExpanded ? "expanded" : "collapsed")">
+    <div class="plan-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;"
+             @onclick="ToggleExpanded">
+            <span class="plan-icon">📋</span>
+            <span class="plan-title">Execution Plan</span>
+            <span class="plan-toggle">@(IsExpanded ? "▼" : "▶")</span>
+        </div>
+        @if (Plan is not null)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="DownloadPlan" @onclick:stopPropagation="true"
+                    title="Download plan">
+                💾 Download
+            </button>
+        }
+    </div>
+    
+    @if (IsExpanded && Plan is not null)
+    {
+        <div class="plan-content">
+            <div class="plan-phases">
+                @for (var i = 0; i < Plan.Phases.Count; i++)
+                {
+                    var phase = Plan.Phases.ElementAt(i);
+                    var phaseIndex = i + 1;
+                    var isCurrentPhase = phaseIndex == CurrentPhaseIndex;
+                    var isCompletedPhase = phaseIndex < CurrentPhaseIndex;
+                    var phaseClass = isCurrentPhase ? "phase-current" : isCompletedPhase ? "phase-completed" : "phase-pending";
+                    
+                    <div class="plan-phase @phaseClass">
+                        <div class="phase-header">
+                            <span class="phase-indicator">
+                                @if (isCompletedPhase)
+                                {
+                                    <span>✅</span>
+                                }
+                                else if (isCurrentPhase)
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                                }
+                                else
+                                {
+                                    <span>⏸️</span>
+                                }
+                            </span>
+                            <span class="phase-name">Phase @phaseIndex: @phase.Name</span>
+                        </div>
+                        
+                        <div class="phase-tasks">
+                            @foreach (var task in phase.Tasks)
+                            {
+                                <div class="phase-task">
+                                    <span class="task-agent" style="color: @GetAgentColor(task.AssignedRole)">
+                                        @GetAgentIcon(task.AssignedRole) @task.AssignedRole
+                                    </span>
+                                    <span class="task-description">@task.Description</span>
+                                    <span class="task-file">→ @task.FileScope</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            
+            @if (ShowActions && !IsExecuting)
+            {
+                <div class="plan-actions">
+                    <button class="btn btn-success" @onclick="OnApprove">
+                        ✅ Execute Plan
+                    </button>
+                    <button class="btn btn-outline-secondary" @onclick="OnCancel">
+                        ❌ Cancel
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public ExecutionPlan? Plan { get; set; }
+    [Parameter] public int CurrentPhaseIndex { get; set; } = 0;
+    [Parameter] public bool ShowActions { get; set; } = false;
+    [Parameter] public bool IsExecuting { get; set; } = false;
+    [Parameter] public EventCallback OnApprove { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public bool InitiallyExpanded { get; set; } = false;
+    [Parameter] public string? PlanMarkdown { get; set; }
+    [Inject] private IJSRuntime? JS { get; set; }
+
+    private bool IsExpanded { get; set; }
+
+    protected override void OnInitialized()
+    {
+        IsExpanded = InitiallyExpanded;
+    }
+
+    private void ToggleExpanded()
+    {
+        IsExpanded = !IsExpanded;
+    }
+
+    private static string GetAgentColor(ElBruno.AgentsOrchestration.Agents.AgentRole role) => role.ToString() switch
+    {
+        "Orchestrator" => "#8b949e",
+        "Planner" => "#58a6ff",
+        "Coder" => "#3fb950",
+        "Designer" => "#f778ba",
+        "Researcher" => "#6610f2",
+        "Fixer" => "#fd7e14",
+        "BuildReviewer" => "#20c997",
+        "SecurityExpert" => "#dc3545",
+        "TestingExpert" => "#17a2b8",
+        "DocumentationExpert" => "#6f42c1",
+        "SoftwareArchitect" => "#fd7e14",
+        _ => "#6c757d"
+    };
+
+    private static string GetAgentIcon(ElBruno.AgentsOrchestration.Agents.AgentRole role) => role.ToString() switch
+    {
+        "Orchestrator" => "🎯",
+        "Planner" => "📋",
+        "Coder" => "💻",
+        "Designer" => "🎨",
+        "Researcher" => "🔍",
+        "Fixer" => "🔧",
+        "BuildReviewer" => "🧠",
+        "SecurityExpert" => "🔒",
+        "TestingExpert" => "✅",
+        "DocumentationExpert" => "📚",
+        "SoftwareArchitect" => "🏗️",
+        _ => "🤖"
+    };
+
+    private async Task DownloadPlan()
+    {
+        if (PlanMarkdown is null || JS is null) return;
+        
+        var fileName = $"execution-plan-{DateTime.Now:yyyyMMdd-HHmmss}.md";
+        await JS.InvokeVoidAsync("downloadTextFile", fileName, PlanMarkdown);
+    }
+}

@@ -416,3 +416,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Orchestration workspaces - generated at runtime
+samples/workspaces/**

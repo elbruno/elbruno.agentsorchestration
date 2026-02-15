@@ -26,8 +26,45 @@ public sealed class CopilotAgentClient : IAgentClient
         var config = _store.Get(role);
         var agent = _copilotClient.AsAIAgent(tools: null);
 
+        var roleContract = role switch
+        {
+            AgentRole.Planner =>
+                """
+                OUTPUT CONTRACT (STRICT):
+                Return ONLY markdown (no prose before or after) in this exact structure:
+
+                # Implementation Plan
+
+                ## Phase 1: <name>
+                - Task: <description> | Agent: <AgentRole> | File: <relative path>
+
+                ## Phase 2: <name>
+                - Task: <description> | Agent: <AgentRole> | File: <relative path>
+
+                Rules:
+                - Every task line MUST start with "- Task:" and use the exact pipe-separated format.
+                - Agent must be one of: Orchestrator, Planner, Coder, Designer, Fixer, BuildReviewer, Researcher, SecurityExpert, TestingExpert, DocumentationExpert, SoftwareArchitect.
+                - Use workspace-relative file paths.
+                - Include a final Validation phase with:
+                  - Task: Build and validate generated project | Agent: Orchestrator | File: build-output.log
+                - Do NOT use code fences.
+                """,
+            AgentRole.Coder or AgentRole.Designer or AgentRole.Fixer =>
+                """
+                OUTPUT CONTRACT (STRICT):
+                Return ONLY the final file content for the requested target file.
+                - No explanations.
+                - No markdown.
+                - No surrounding text.
+                - No code fences.
+                """,
+            _ => string.Empty
+        };
+
         var fullPrompt = $"""
             {config.Instructions}
+
+            {roleContract}
 
             Workspace: {workspacePath}
 

@@ -12,7 +12,17 @@ var rootWorkspacePath = Directory.Exists(Path.Combine(currentDir, "samples"))
     ? Path.Combine(currentDir, "samples", "workspaces")
     : Path.Combine(currentDir, "..", "workspaces");
 
-var service = OrchestrationServiceFactory.Create(rootWorkspacePath);
+var service = OrchestrationServiceFactory.Create(
+    rootWorkspacePath,
+    autoApprovePlans: true,
+    onPlanGenerated: plan =>
+    {
+        Console.WriteLine("\n📋 Plan Generated:");
+        Console.WriteLine(new string('─', 60));
+        Console.WriteLine(plan);
+        Console.WriteLine(new string('─', 60));
+        Console.WriteLine("✅ Auto-approving plan...\n");
+    });
 
 // Step 2: Define the prompt
 var prompt = "Create a .NET console app that displays current weather for three cities: London, Tokyo, and New York. Use random temperatures between 10 and 30 degrees Celsius. Show the city name, temperature, and a weather emoji (☀️ for warm, 🌤️ for mild, ❄️ for cold).";

@@ -1,0 +1,19 @@
+@if (TotalPhases > 0)
+{
+    <div class="phase-progress">
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" style="width: @ProgressPercentage%"></div>
+        </div>
+        <div class="progress-text">
+            Phase @CurrentPhase of @TotalPhases @(CurrentPhaseName is not null ? $"— {CurrentPhaseName}" : "")
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int TotalPhases { get; set; }
+    [Parameter] public int CurrentPhase { get; set; }
+    [Parameter] public string? CurrentPhaseName { get; set; }
+
+    private double ProgressPercentage => TotalPhases > 0 ? (CurrentPhase / (double)TotalPhases) * 100 : 0;
+}

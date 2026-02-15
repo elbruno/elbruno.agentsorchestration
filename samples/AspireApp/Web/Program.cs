@@ -28,13 +28,15 @@ builder.Services.AddScoped(sp =>
     return new WorkspaceManager(rootPath);
 });
 builder.Services.AddScoped<IWorkspace>(sp => sp.GetRequiredService<WorkspaceManager>());
+builder.Services.AddSingleton<AgentOutputStore>();
 builder.Services.AddScoped(sp =>
 {
     var maxFix = builder.Configuration.GetValue("Orchestration:MaxFixAttempts", 3);
     return new OrchestrationService(
         sp.GetRequiredService<AgentFactory>(),
         sp.GetRequiredService<IWorkspace>(),
-        maxFix);
+        maxFix,
+        sp.GetRequiredService<AgentOutputStore>());
 });
 
 var app = builder.Build();

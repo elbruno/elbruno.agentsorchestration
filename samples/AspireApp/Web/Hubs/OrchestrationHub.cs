@@ -69,6 +69,8 @@ public sealed class OrchestrationHub : Hub
         evt switch
         {
             OrchestrationStartedEvent started => $"Started: {started.Prompt}",
+            PlanGeneratedEvent => "📋 Plan generated",
+            PlanApprovedEvent approved => approved.AutoApproved ? "✅ Plan auto-approved" : "✅ Plan approved",
             PhaseStartedEvent phaseStarted => $"Phase {phaseStarted.PhaseIndex} started: {phaseStarted.PhaseName}",
             AgentActivatedEvent activated => $"{activated.Role} active: {activated.TaskDescription}",
             AgentStreamingEvent streaming => $"{streaming.Role}: {streaming.DeltaContent}",
