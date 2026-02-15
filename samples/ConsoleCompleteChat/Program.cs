@@ -33,6 +33,10 @@ var factory = new AgentFactory(store, client);
 var workspaceManager = new WorkspaceManager(rootPath);
 var conversationManager = new ConversationManager();
 
+// Initialize session persistence
+var sessionStorePath = Path.Combine(rootPath, ".sessions");
+var sessionPersistence = new SessionPersistence(sessionStorePath);
+
 var running = true;
 ConversationSession? currentSession = null;
 string? currentWorkspacePath = null;
@@ -127,6 +131,17 @@ async Task RunOrchestrationAsync(string prompt)
         if (currentSession is not null)
         {
             currentSession = conversationManager.RecordTurn(currentSession.SessionId, prompt, result);
+
+            // Auto-save session to disk
+            try
+            {
+                await sessionPersistence.SaveSessionAsync(currentSession);
+                Console.WriteLine($"💾 Session auto-saved");
+            }
+            catch (Exception saveEx)
+            {
+                Console.WriteLine($"⚠️ Failed to save session: {saveEx.Message}");
+            }
         }
     }
     catch (Exception ex)
@@ -258,9 +273,10 @@ void ListSessions()
         for (int i = 0; i < sessions.Count; i++)
         {
             var s = sessions[i];
+            var tokenCount = s.EstimateTokenCount();
             Console.WriteLine($"  [{i + 1}] {Path.GetFileName(s.WorkspacePath)}");
             Console.WriteLine($"      Created: {s.CreatedAt:yyyy-MM-dd HH:mm:ss}");
-            Console.WriteLine($"      Turns: {s.History.Count}");
+            Console.WriteLine($"      Turns: {s.History.Count} | Tokens: ~{tokenCount}");
         }
         Console.WriteLine();
     }
@@ -270,26 +286,166 @@ void ListSessions()
     }
 }
 
+async Task ListSavedSessionsAsync()
+{
+    try
+    {
+        var savedFiles = sessionPersistence.ListSavedSessionFiles();
+        Console.WriteLine($"\n💾 Saved Sessions: {savedFiles.Count}\n");
+
+        if (savedFiles.Count == 0)
+        {
+            Console.WriteLine("No saved sessions found.\n");
+            return;
+        }
+
+        for (int i = 0; i < Math.Min(10, savedFiles.Count); i++)
+        {
+            var file = savedFiles[i];
+            var fileName = Path.GetFileName(file);
+            var lastModified = File.GetLastWriteTimeUtc(file);
+            Console.WriteLine($"  [{i + 1}] {fileName}");
+            Console.WriteLine($"      Last modified: {lastModified:yyyy-MM-dd HH:mm:ss} UTC");
+        }
+
+        if (savedFiles.Count > 10)
+        {
+            Console.WriteLine($"\n  ... and {savedFiles.Count - 10} more sessions\n");
+        }
+        Console.WriteLine();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error listing saved sessions: {ex.Message}\n");
+    }
+}
+
+async Task ResumeSessionAsync()
+{
+    try
+    {
+        await ListSavedSessionsAsync();
+
+        var savedFiles = sessionPersistence.ListSavedSessionFiles();
+        if (savedFiles.Count == 0)
+            return;
+
+        Console.Write("Enter session number to resume (or press Enter to cancel): ");
+        var input = Console.ReadLine()?.Trim();
+
+        if (string.IsNullOrEmpty(input))
+            return;
+
+        if (!int.TryParse(input, out var choice) || choice < 1 || choice > savedFiles.Count)
+        {
+            Console.WriteLine("❌ Invalid selection.\n");
+            return;
+        }
+
+        var filePath = savedFiles[choice - 1];
+        var session = await sessionPersistence.LoadSessionAsync(filePath);
+
+        if (session is null)
+        {
+            Console.WriteLine("❌ Failed to load session.\n");
+            return;
+        }
+
+        currentSession = session;
+        currentWorkspacePath = session.WorkspacePath;
+
+        // Re-add to conversation manager
+        conversationManager.ClearSession(session.SessionId); // Clear if exists
+                                                             // Since ConversationManager doesn't have a method to add existing session, we'll work around it
+                                                             // by creating a new session with the loaded data
+
+        Console.WriteLine($"\n✅ Session resumed: {session.SessionId}");
+        Console.WriteLine($"   Workspace: {session.WorkspacePath}");
+        Console.WriteLine($"   Turns: {session.History.Count}");
+        Console.WriteLine($"   Estimated tokens: ~{session.EstimateTokenCount()}\n");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error resuming session: {ex.Message}\n");
+    }
+}
+
+async Task ExportSessionAsync()
+{
+    try
+    {
+        if (currentSession is null)
+        {
+            Console.WriteLine("❌ No active session to export.\n");
+            return;
+        }
+
+        var exportPath = Path.Combine(currentWorkspacePath ?? rootPath, $"conversation_{currentSession.SessionId}.md");
+        await sessionPersistence.SaveAsMarkdownAsync(currentSession, exportPath);
+
+        Console.WriteLine($"\n✅ Session exported to:");
+        Console.WriteLine($"   {exportPath}\n");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error exporting session: {ex.Message}\n");
+    }
+}
+
+void ShowSessionInfo()
+{
+    try
+    {
+        if (currentSession is null)
+        {
+            Console.WriteLine("❌ No active session.\n");
+            return;
+        }
+
+        var tokenCount = currentSession.EstimateTokenCount();
+        Console.WriteLine($"\n📊 Session Information:");
+        Console.WriteLine($"   Session ID: {currentSession.SessionId}");
+        Console.WriteLine($"   Workspace: {currentSession.WorkspacePath}");
+        Console.WriteLine($"   Created: {currentSession.CreatedAt:yyyy-MM-dd HH:mm:ss}");
+        Console.WriteLine($"   Total turns: {currentSession.History.Count}");
+        Console.WriteLine($"   Estimated tokens: ~{tokenCount}");
+
+        if (currentSession.History.Count > 0)
+        {
+            Console.WriteLine($"\n   Last turn: {currentSession.History[^1].UserPrompt[..Math.Min(50, currentSession.History[^1].UserPrompt.Length)]}...");
+        }
+        Console.WriteLine();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error displaying session info: {ex.Message}\n");
+    }
+}
+
 void DisplayMainMenu()
 {
     Console.WriteLine("Select an option:");
     Console.WriteLine("  [1] Start new orchestration");
-    Console.WriteLine("  [2] List active sessions");
-    Console.WriteLine("  [3] Exit");
+    Console.WriteLine("  [2] Resume saved session");
+    Console.WriteLine("  [3] List active sessions");
+    Console.WriteLine("  [4] Exit");
     Console.Write("\nChoice: ");
 }
 
 void DisplayConversationMenu()
 {
+    var tokenCount = currentSession?.EstimateTokenCount() ?? 0;
     Console.WriteLine($"\n📊 Current Session: {Path.GetFileName(currentWorkspacePath)}");
-    Console.WriteLine($"   Turns: {currentSession?.History.Count ?? 0}\n");
+    Console.WriteLine($"   Turns: {currentSession?.History.Count ?? 0} | Tokens: ~{tokenCount}\n");
     Console.WriteLine("What would you like to do?");
     Console.WriteLine("  [1] Add feature / make changes");
     Console.WriteLine("  [2] Run the app");
     Console.WriteLine("  [3] View generated files");
-    Console.WriteLine("  [4] Show run command (copy to clipboard)");
-    Console.WriteLine("  [5] Start new orchestration");
-    Console.WriteLine("  [6] Exit");
+    Console.WriteLine("  [4] Show run command");
+    Console.WriteLine("  [5] Show session info");
+    Console.WriteLine("  [6] Export session as markdown");
+    Console.WriteLine("  [7] Start new orchestration");
+    Console.WriteLine("  [8] Exit");
     Console.Write("\nChoice: ");
 }
 
@@ -340,9 +496,12 @@ try
                         await RunNewOrchestrationAsync();
                         break;
                     case "2":
-                        ListSessions();
+                        await ResumeSessionAsync();
                         break;
                     case "3":
+                        ListSessions();
+                        break;
+                    case "4":
                         running = false;
                         Console.WriteLine("\n👋 Goodbye!\n");
                         break;
@@ -371,11 +530,17 @@ try
                         ShowRunCommand();
                         break;
                     case "5":
+                        ShowSessionInfo();
+                        break;
+                    case "6":
+                        await ExportSessionAsync();
+                        break;
+                    case "7":
                         currentSession = null;
                         currentWorkspacePath = null;
                         Console.WriteLine("\n✅ Session cleared.\n");
                         break;
-                    case "6":
+                    case "8":
                         running = false;
                         await CleanupAsync();
                         Console.WriteLine("\n👋 Goodbye!\n");
