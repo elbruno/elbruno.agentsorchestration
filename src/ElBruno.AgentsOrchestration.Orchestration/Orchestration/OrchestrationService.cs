@@ -146,9 +146,9 @@ public sealed class OrchestrationService
         {
             phases.Add(new ExecutionPhase("Implementation",
             [
-                new ExecutionTask($"Implement main application logic for: {prompt}", AgentRole.Coder, "Program.cs"),
-                new ExecutionTask($"Create data models for: {prompt}", AgentRole.Coder, "Models.cs"),
-                new ExecutionTask($"Create application styles for: {prompt}", AgentRole.Designer, "styles.css")
+                new ExecutionTask("Implement main application logic", AgentRole.Coder, "Program.cs"),
+                new ExecutionTask("Create data models", AgentRole.Coder, "Models.cs"),
+                new ExecutionTask("Create application styles", AgentRole.Designer, "styles.css")
             ]));
         }
 
@@ -167,7 +167,8 @@ public sealed class OrchestrationService
         var description = parts[0].StartsWith("Task:", StringComparison.OrdinalIgnoreCase)
             ? parts[0][5..].Trim()
             : parts[0];
-        description = $"{description} for: {prompt}";
+        // Don't append full prompt - keep descriptions concise
+        // description = $"{description} for: {prompt}";
 
         var agentStr = parts[1].StartsWith("Agent:", StringComparison.OrdinalIgnoreCase)
             ? parts[1][6..].Trim()
