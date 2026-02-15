@@ -61,6 +61,8 @@ The libraries provide a production-ready orchestration engine with:
 
 ## Installation
 
+[![NuGet](https://img.shields.io/nuget/v/ElBruno.AgentsOrchestration.Core.svg)](https://www.nuget.org/packages/ElBruno.AgentsOrchestration.Core/)
+
 ```bash
 dotnet add package ElBruno.AgentsOrchestration.Core
 ```
@@ -174,4 +176,8 @@ If you have questions, feedback, or want to chat about this project—hit me up 
 
 ## License
 
-MIT
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+**Copyright © ElBruno** — All rights reserved.
