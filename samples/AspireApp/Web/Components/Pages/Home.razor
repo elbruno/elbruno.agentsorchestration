@@ -12,17 +12,43 @@
 
 <div class="dashboard-layout">
     <div class="split-pane">
-        <section class="split-left" style="flex: @LeftFlex">
-            <PromptInput @bind-Prompt="Prompt" IsRunning="IsRunning" OnRun="RunAsync" OnCancel="CancelAsync"
-                         OnClear="ClearConversation" Messages="ChatMessages" />
-        </section>
-        <div class="split-handle" @onpointerdown="OnHandlePointerDown"></div>
-        <section class="split-right" style="flex: @RightFlex; display: flex; flex-direction: column; overflow: hidden;">
-            <div class="d-flex border-bottom bg-light">
+        @if (_chatCollapsed)
+        {
+            <aside class="chat-rail" @onclick="ExpandChat">
+                <span class="chat-rail-icon" title="Expand chat">💬</span>
+                <span class="chat-rail-expand" title="Expand chat">»</span>
+                @if (ChatMessages.Count > 0)
+                {
+                    <span class="chat-rail-badge">@ChatMessages.Count</span>
+                }
+            </aside>
+        }
+        else
+        {
+            <section class="split-left" style="flex: @LeftFlex">
+                <div class="chat-panel-header">
+                    <span class="chat-panel-title">💬 Chat</span>
+                    <button class="btn btn-sm btn-link chat-collapse-btn" @onclick="CollapseChat" title="Collapse chat">
+                        «
+                    </button>
+                </div>
+                <PromptInput @bind-Prompt="Prompt" IsRunning="IsRunning" OnRun="RunAsync" OnCancel="CancelAsync"
+                             OnClear="ClearConversation" Messages="ChatMessages" />
+            </section>
+            <div class="split-handle" @onpointerdown="OnHandlePointerDown"></div>
+        }
+        <section class="split-right"
+                 style="flex: @(_chatCollapsed ? 1 : RightFlex); display: flex; flex-direction: column; overflow: hidden;">
+            <div class="d-flex border-bottom bg-light tab-bar">
                 <button
-                    class="btn btn-sm @(ActiveTab == "graph" ? "btn-light fw-bold border-bottom-0" : "btn-link text-decoration-none text-secondary") rounded-0 px-3 py-2"
-                    @onclick="@(() => ActiveTab = "graph")">
-                    <i class="bi bi-diagram-3"></i> Agent Network
+                    class="btn btn-sm @(ActiveTab == "chart" ? "btn-light fw-bold border-bottom-0" : "btn-link text-decoration-none text-secondary") rounded-0 px-3 py-2"
+                    @onclick="@(() => ActiveTab = "chart")">
+                    <i class="bi bi-diagram-3"></i> Agent Chart
+                </button>
+                <button
+                    class="btn btn-sm @(ActiveTab == "plan" ? "btn-light fw-bold border-bottom-0" : "btn-link text-decoration-none text-secondary") rounded-0 px-3 py-2"
+                    @onclick="@(() => ActiveTab = "plan")">
+                    <i class="bi bi-card-checklist"></i> Implementation Plan
                 </button>
                 <button
                     class="btn btn-sm @(ActiveTab == "flow" ? "btn-light fw-bold border-bottom-0" : "btn-link text-decoration-none text-secondary") rounded-0 px-3 py-2"
@@ -32,25 +58,28 @@
             </div>
             
             <div style="flex: 1; overflow: hidden; position: relative;">
-                @* Plan Viewer *@
-                @if (_currentPlan is not null)
+                @if (ActiveTab == "chart")
                 {
-                    <div class="plan-viewer-container">
-                        <PlanViewer Plan="_currentPlan" CurrentPhaseIndex="_currentPhaseIndex"
-                                    ShowActions="_planAwaitingApproval" IsExecuting="IsRunning && !_planAwaitingApproval"
-                                    OnApprove="ApprovePlan" OnCancel="RejectPlan" PlanMarkdown="@_currentPlanMarkdown" />
-                        
-                        @if (IsRunning && !_planAwaitingApproval && _currentPlan is not null)
+                    <AgentCanvasChart @ref="_canvasChart" Nodes="AgentNodes" Connections="AgentConnections"
+                                      OnNodeClicked="HandleNodeClick" />
+                }
+                else if (ActiveTab == "plan")
+                {
+                    <div class="h-100 overflow-auto p-2">
+                        @if (_currentPlan is not null)
                         {
-                            <PhaseProgress TotalPhases="_currentPlan.Phases.Count" CurrentPhase="_currentPhaseIndex"
-                                           CurrentPhaseName="_currentPhaseName" />
+                            <PlanViewer Plan="_currentPlan" CurrentPhaseIndex="_currentPhaseIndex"
+                                        ShowActions="_planAwaitingApproval" IsExecuting="IsRunning && !_planAwaitingApproval"
+                                        OnApprove="ApprovePlan" OnCancel="RejectPlan" PlanMarkdown="@_currentPlanMarkdown" />
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+                                <i class="bi bi-card-checklist display-4 mb-3"></i>
+                                <p>No execution plan yet. Submit a prompt to generate one.</p>
+                            </div>
                         }
                     </div>
-                }
-                
-                @if (ActiveTab == "graph")
-                {
-                    <AgentGraph Nodes="AgentNodes" Connections="AgentConnections" OnNodeClicked="HandleNodeClick" />
                 }
                 else
                 {
@@ -59,6 +88,15 @@
                     </div>
                 }
             </div>
+
+            @* Status bar — always visible below tabs *@
+            @if (IsRunning && !_planAwaitingApproval && _currentPlan is not null)
+            {
+                <div class="orchestration-status-bar">
+                    <PhaseProgress TotalPhases="_currentPlan.Phases.Count" CurrentPhase="_currentPhaseIndex"
+                                   CurrentPhaseName="@_currentPhaseName" />
+                </div>
+            }
         </section>
     </div>
 
@@ -99,16 +137,14 @@
     private WorkspaceManager? _lastWorkspaceManager;
     private AppRunner? _appRunner;
     private string Prompt { get; set; } = string.Empty;
-    private string ActiveTab { get; set; } = "graph";
+    private string ActiveTab { get; set; } = "chart";
     private AgentCallGraph _callGraph = new();
     private List<ActivityItem> Activities { get; } = [];
     private List<ChatMessage> ChatMessages { get; } = [];
     private string? _lastBuildResult;
     private List<AgentConnection> AgentConnections { get; } = [];
-    private List<AgentNodeState> AgentNodes { get; } =
-    [
-        new() { Name = "Orchestrator", Color = "#8b949e", Icon = "\U0001f3af" }
-    ];
+    private List<AgentNodeState> AgentNodes { get; } = [];
+    private AgentCanvasChart? _canvasChart;
     
     // Plan approval workflow
     private ExecutionPlan? _currentPlan;
@@ -126,16 +162,47 @@
     private string? _selectedAgentTask;
 
     private static readonly Dictionary<string, (string Color, string Icon)> AgentStyles =
-new(StringComparer.OrdinalIgnoreCase)
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Orchestrator", ("#8b949e", "\U0001f3af") },
+            { "Planner", ("#58a6ff", "\U0001f4cb") },
+            { "Coder", ("#3fb950", "\U0001f4bb") },
+            { "Designer", ("#f778ba", "\U0001f3a8") },
+            { "Researcher", ("#6610f2", "\U0001f50d") },
+            { "Fixer", ("#fd7e14", "\U0001f527") },
+            { "BuildReviewer", ("#20c997", "\U0001f9d0") },
+            { "SecurityExpert", ("#dc3545", "\U0001f512") },
+            { "TestingExpert", ("#17a2b8", "\u2705") },
+            { "DocumentationExpert", ("#6f42c1", "\U0001f4da") },
+            { "SoftwareArchitect", ("#fd7e14", "\U0001f3d7") },
+        };
+
+    protected override void OnInitialized()
     {
-        { "Orchestrator", ("#8b949e", "\U0001f3af") },
-        { "Planner", ("#58a6ff", "\U0001f4cb") },
-        { "Coder", ("#3fb950", "\U0001f4bb") },
-        { "Designer", ("#f778ba", "\U0001f3a8") },
-        { "Researcher", ("#6610f2", "\U0001f50d") },
-        { "Fixer", ("#fd7e14", "\U0001f527") },
-        { "BuildReviewer", ("#20c997", "\U0001f9d0") }
-    };
+        InitializeAllAgents();
+    }
+
+    private void InitializeAllAgents()
+    {
+        AgentNodes.Clear();
+        AgentConnections.Clear();
+        foreach (var (name, (color, icon)) in AgentStyles)
+        {
+            AgentNodes.Add(new AgentNodeState
+            {
+                Name = name,
+                Color = color,
+                Icon = icon,
+                Status = "idle",
+                Instruction = "Idle"
+            });
+        }
+    }
+
+    private static string GetAgentColor(string name)
+    {
+        return AgentStyles.TryGetValue(name, out var style) ? style.Color : "#8b949e";
+    }
     
     private async Task CopyFileLocationAsync()
     {
@@ -179,6 +246,10 @@ new(StringComparer.OrdinalIgnoreCase)
         _buildSucceeded = false;
         _runCts = new CancellationTokenSource();
         _currentSessionId = Guid.NewGuid().ToString("N");
+
+        // Reset canvas connections and phase badges for the new run
+        if (_canvasChart is not null)
+            await _canvasChart.ResetAllAsync();
 
         using var scope = ScopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<OrchestrationService>();
@@ -243,7 +314,8 @@ new(StringComparer.OrdinalIgnoreCase)
         {
             IsRunning = false;
             _planAwaitingApproval = false;
-            DeactivateAllConnections();
+            if (_canvasChart is not null)
+                await _canvasChart.DeactivateAllAsync();
             _runCts.Dispose();
             _runCts = null;
         }
@@ -306,7 +378,6 @@ new(StringComparer.OrdinalIgnoreCase)
         _currentPhaseName = null;
         _planAwaitingApproval = false;
         ResetStatuses();
-        DeactivateAllConnections();
     }
 
     private async Task LaunchAppAsync()
@@ -390,7 +461,14 @@ new(StringComparer.OrdinalIgnoreCase)
         // Handle plan events
         if (evt is PlanGeneratedEvent planGenerated)
         {
-            // Plan is already set by the callback, just update UI
+            // Auto-switch to plan tab when plan is generated
+            ActiveTab = "plan";
+            _ = InvokeAsync(StateHasChanged);
+        }
+        else if (evt is PlanApprovedEvent)
+        {
+            // Switch back to chart tab when plan is approved
+            ActiveTab = "chart";
             _ = InvokeAsync(StateHasChanged);
         }
         else if (evt is PhaseStartedEvent phaseStarted)
@@ -401,17 +479,42 @@ new(StringComparer.OrdinalIgnoreCase)
         else if (evt is AgentActivatedEvent activated2)
         {
             SetNodeStatus(activated2.Role.ToString(), "active", message);
-            ActivateConnection(activated2.Role.ToString());
+            var activatedColor = GetAgentColor(activated2.Role.ToString());
+            var taskDesc = activated2.TaskDescription;
+            var roleName = activated2.Role.ToString();
+            var phaseIdx = _currentPhaseIndex;
+            _ = InvokeAsync(async () =>
+            {
+                if (_canvasChart is not null)
+                {
+                    await _canvasChart.ActivateNodeAsync(roleName, activatedColor, taskDesc);
+                    await _canvasChart.DrawConnectionAsync("Orchestrator", roleName, activatedColor, true);
+                    if (phaseIdx > 0)
+                        await _canvasChart.AddNodePhaseAsync(roleName, phaseIdx);
+                }
+            });
         }
         else if (evt is AgentCompletedEvent completed2)
         {
             SetNodeStatus(completed2.Role.ToString(), "complete", message);
-            DeactivateConnection(completed2.Role.ToString());
+            var completedRole = completed2.Role.ToString();
+            _ = InvokeAsync(async () =>
+            {
+                if (_canvasChart is not null)
+                {
+                    await _canvasChart.CompleteNodeAsync(completedRole);
+                    await _canvasChart.DeactivateConnectionAsync("Orchestrator", completedRole);
+                }
+            });
         }
         else if (evt is OrchestrationCompletedEvent || evt is OrchestrationErrorEvent)
         {
             IsRunning = false;
-            DeactivateAllConnections();
+            _ = InvokeAsync(async () =>
+            {
+                if (_canvasChart is not null)
+                    await _canvasChart.DeactivateAllAsync();
+            });
         }
         else if (evt is BuildValidationEvent buildEvt)
         {
@@ -424,8 +527,18 @@ new(StringComparer.OrdinalIgnoreCase)
         {
             SetNodeStatus(comm.FromAgent.ToString(), "active", $"Sending to {comm.ToAgent}");
             SetNodeStatus(comm.ToAgent.ToString(), "active", $"Receiving from {comm.FromAgent}");
-            EnsureConnection(comm.FromAgent.ToString(), comm.ToAgent.ToString());
-            ActivateConnection(comm.ToAgent.ToString());
+            var commFromName = comm.FromAgent.ToString();
+            var commToName = comm.ToAgent.ToString();
+            var commColor = GetAgentColor(commToName);
+            _ = InvokeAsync(async () =>
+            {
+                if (_canvasChart is not null)
+                {
+                    await _canvasChart.ActivateNodeAsync(commFromName, GetAgentColor(commFromName));
+                    await _canvasChart.ActivateNodeAsync(commToName, commColor);
+                    await _canvasChart.DrawConnectionAsync(commFromName, commToName, commColor, true);
+                }
+            });
         }
         else if (evt is AppLaunchedEvent)
         {
@@ -466,88 +579,29 @@ new(StringComparer.OrdinalIgnoreCase)
                 node = new AgentNodeState { Name = roleName, Color = "#6c757d", Icon = "\U0001f916" };
             }
             AgentNodes.Add(node);
-
-            // Ensure connection from Orchestrator exists (default assumption)
-            if (!roleName.Equals("Orchestrator", StringComparison.OrdinalIgnoreCase))
-            {
-                EnsureConnection("Orchestrator", roleName);
-            }
         }
 
         node.Status = status;
         node.Instruction = message.Length > 90 ? $"{message[..90]}..." : message;
     }
 
-    private void EnsureConnection(string from, string to)
-    {
-        if (from.Equals(to, StringComparison.OrdinalIgnoreCase)) return;
-
-        var exists = AgentConnections.Any(c =>
-            c.From.Equals(from, StringComparison.OrdinalIgnoreCase) &&
-            c.To.Equals(to, StringComparison.OrdinalIgnoreCase));
-            
-        if (!exists)
-        {
-            AgentConnections.Add(new AgentConnection { From = from, To = to });
-        }
-    }
-
-    private void ActivateConnection(string roleName)
-    {
-        // Activate any connection pointing TO this role
-        foreach (var conn in AgentConnections)
-        {
-            if (conn.To.Equals(roleName, StringComparison.OrdinalIgnoreCase))
-                conn.IsActive = true;
-        }
-    }
-
-    private void DeactivateConnection(string roleName)
-    {
-        foreach (var conn in AgentConnections)
-        {
-            if (conn.To.Equals(roleName, StringComparison.OrdinalIgnoreCase))
-                conn.IsActive = false;
-        }
-    }
-
-    private void DeactivateAllConnections()
-    {
-        foreach (var conn in AgentConnections) conn.IsActive = false;
-    }
-
     private void ResetStatuses()
     {
-        var orchestrator = AgentNodes.FirstOrDefault(n => n.Name.Equals("Orchestrator", StringComparison.OrdinalIgnoreCase));
-        AgentNodes.Clear();
-        
-        if (orchestrator != null)
+        foreach (var node in AgentNodes)
         {
-            orchestrator.Status = "idle";
-            orchestrator.Instruction = "Waiting for task";
-            AgentNodes.Add(orchestrator);
+            node.Status = "idle";
+            node.Instruction = "Idle";
         }
-        else
-        {
-            if (AgentStyles.TryGetValue("Orchestrator", out var style))
-            {
-                AgentNodes.Add(new AgentNodeState
-                {
-                    Name = "Orchestrator",
-                    Color = style.Color,
-                    Icon = style.Icon,
-                    Status = "idle",
-                    Instruction = "Waiting for task"
-                });
-            }
-        }
-        
         AgentConnections.Clear();
     }
 
     // Resizable split pane
     private double LeftFlex { get; set; } = 1;
     private double RightFlex { get; set; } = 1;
+    private bool _chatCollapsed;
+
+    private void CollapseChat() => _chatCollapsed = true;
+    private void ExpandChat() => _chatCollapsed = false;
 
     private void OnHandlePointerDown(PointerEventArgs e) { /* handled in JS */ }
 

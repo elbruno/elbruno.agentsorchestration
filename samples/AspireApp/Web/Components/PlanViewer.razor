@@ -1,24 +1,23 @@
 @using ElBruno.AgentsOrchestration.Orchestration
 
-<div class="plan-viewer @(IsExpanded ? "expanded" : "collapsed")">
-    <div class="plan-header">
-        <div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;"
-             @onclick="ToggleExpanded">
-            <span class="plan-icon">📋</span>
-            <span class="plan-title">Execution Plan</span>
-            <span class="plan-toggle">@(IsExpanded ? "▼" : "▶")</span>
-        </div>
-        @if (Plan is not null)
-        {
-            <button class="btn btn-sm btn-outline-secondary" @onclick="DownloadPlan" @onclick:stopPropagation="true"
-                    title="Download plan">
-                💾 Download
+@if (Plan is not null)
+{
+    <div class="plan-viewer-flat">
+        <div class="plan-toolbar">
+            <span class="plan-toolbar-title">📋 Execution Plan — @Plan.Phases.Count phases</span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="DownloadPlan" title="Download plan">
+                <i class="bi bi-download"></i> Download
             </button>
-        }
-    </div>
-    
-    @if (IsExpanded && Plan is not null)
-    {
+            @if (ShowActions && !IsExecuting)
+            {
+                <button class="btn btn-sm btn-success" @onclick="OnApprove">
+                    ✅ Execute
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="OnCancel">
+                    ❌ Cancel
+                </button>
+            }
+        </div>
         <div class="plan-content">
             <div class="plan-phases">
                 @for (var i = 0; i < Plan.Phases.Count; i++)
@@ -64,20 +63,9 @@
                 }
             </div>
             
-            @if (ShowActions && !IsExecuting)
-            {
-                <div class="plan-actions">
-                    <button class="btn btn-success" @onclick="OnApprove">
-                        ✅ Execute Plan
-                    </button>
-                    <button class="btn btn-outline-secondary" @onclick="OnCancel">
-                        ❌ Cancel
-                    </button>
-                </div>
-            }
         </div>
-    }
-</div>
+    </div>
+}
 
 @code {
     [Parameter] public ExecutionPlan? Plan { get; set; }
@@ -86,21 +74,8 @@
     [Parameter] public bool IsExecuting { get; set; } = false;
     [Parameter] public EventCallback OnApprove { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
-    [Parameter] public bool InitiallyExpanded { get; set; } = false;
     [Parameter] public string? PlanMarkdown { get; set; }
     [Inject] private IJSRuntime? JS { get; set; }
-
-    private bool IsExpanded { get; set; }
-
-    protected override void OnInitialized()
-    {
-        IsExpanded = InitiallyExpanded;
-    }
-
-    private void ToggleExpanded()
-    {
-        IsExpanded = !IsExpanded;
-    }
 
     private static string GetAgentColor(ElBruno.AgentsOrchestration.Agents.AgentRole role) => role.ToString() switch
     {
