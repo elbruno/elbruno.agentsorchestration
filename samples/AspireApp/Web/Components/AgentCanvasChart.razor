@@ -1,0 +1,97 @@
+@using AgentsOrchestration.Web.Models
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="agent-canvas-container" style="width:100%; height:100%; position:relative;">
+    <canvas id="agent-canvas" style="width:100%; height:100%; display:block;"></canvas>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyCollection<AgentNodeState> Nodes { get; set; } = [];
+    [Parameter] public IReadOnlyCollection<AgentConnection> Connections { get; set; } = [];
+    [Parameter] public EventCallback<string> OnNodeClicked { get; set; }
+
+    private DotNetObjectReference<AgentCanvasChart>? _objRef;
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("agentCanvas.init", "agent-canvas", _objRef);
+            await PushAllNodes();
+            _initialized = true;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_initialized) return;
+        await PushAllNodes();
+    }
+
+    private async Task PushAllNodes()
+    {
+        var nodeData = Nodes.Select(n => new
+        {
+            name = n.Name,
+            icon = n.Icon,
+            color = n.Color,
+            status = n.Status,
+            instruction = n.Instruction
+        }).ToArray();
+
+        await JS.InvokeVoidAsync("agentCanvas.setNodes", (object)nodeData);
+    }
+
+    [JSInvokable]
+    public async Task OnCanvasNodeClicked(string nodeName)
+    {
+        await OnNodeClicked.InvokeAsync(nodeName);
+    }
+
+    // ─── Public methods for Home.razor to call ───
+
+    public async Task ActivateNodeAsync(string name, string color, string? instruction = null)
+    {
+        if (!_initialized) return;
+        await JS.InvokeVoidAsync("agentCanvas.activateNode", name, color);
+        if (instruction is not null)
+            await JS.InvokeVoidAsync("agentCanvas.updateNodeInstruction", name, instruction);
+    }
+
+    public async Task CompleteNodeAsync(string name)
+    {
+        if (!_initialized) return;
+        await JS.InvokeVoidAsync("agentCanvas.completeNode", name);
+    }
+
+    public async Task DrawConnectionAsync(string from, string to, string color, bool animated = true)
+    {
+        if (!_initialized) return;
+        await JS.InvokeVoidAsync("agentCanvas.drawConnection", from, to, color, animated);
+    }
+
+    public async Task DeactivateConnectionAsync(string from, string to)
+    {
+        if (!_initialized) return;
+        await JS.InvokeVoidAsync("agentCanvas.deactivateConnection", from, to);
+    }
+
+    public async Task DeactivateAllAsync()
+    {
+        if (!_initialized) return;
+        await JS.InvokeVoidAsync("agentCanvas.deactivateAll");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_initialized)
+        {
+            try { await JS.InvokeVoidAsync("agentCanvas.dispose"); }
+            catch (JSDisconnectedException) { }
+        }
+        _objRef?.Dispose();
+    }
+}
