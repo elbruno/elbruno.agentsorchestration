@@ -632,6 +632,83 @@ h1 {
     flex-direction: column;
 }
 
+/* === Chat Panel Header === */
+.chat-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.75rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+
+.chat-panel-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.chat-collapse-btn {
+    font-size: 1rem;
+    font-weight: bold;
+    color: var(--text-muted) !important;
+    padding: 0 0.3rem;
+    text-decoration: none !important;
+    line-height: 1;
+}
+
+.chat-collapse-btn:hover {
+    color: var(--text-primary) !important;
+}
+
+/* === Chat Rail (collapsed state) === */
+.chat-rail {
+    width: 42px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 0.75rem;
+    gap: 0.5rem;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background var(--transition);
+    position: relative;
+}
+
+.chat-rail:hover {
+    background: var(--bg-tertiary);
+}
+
+.chat-rail-icon {
+    font-size: 1.2rem;
+}
+
+.chat-rail-expand {
+    font-size: 1rem;
+    font-weight: bold;
+    color: var(--text-muted);
+}
+
+.chat-rail:hover .chat-rail-expand {
+    color: var(--text-primary);
+}
+
+.chat-rail-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent-blue);
+    border-radius: 999px;
+    padding: 0.1rem 0.4rem;
+    min-width: 1.2rem;
+    text-align: center;
+}
+
 .split-left {
     border-right: none;
 }
@@ -692,7 +769,40 @@ h1 {
     animation: pulse 1.5s ease-in-out infinite;
 }
 
-/* === Plan Viewer === */
+/* === Plan Viewer (flat, non-collapsible) === */
+.plan-viewer-flat {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.plan-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+
+.plan-toolbar-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex: 1;
+}
+
+.plan-viewer-flat .plan-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    max-height: none;
+}
+
+/* === Plan Viewer (legacy) === */
 .plan-viewer-container {
     position: relative;
     z-index: 10;

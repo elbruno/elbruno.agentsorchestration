@@ -12,12 +12,33 @@
 
 <div class="dashboard-layout">
     <div class="split-pane">
-        <section class="split-left" style="flex: @LeftFlex">
-            <PromptInput @bind-Prompt="Prompt" IsRunning="IsRunning" OnRun="RunAsync" OnCancel="CancelAsync"
-                         OnClear="ClearConversation" Messages="ChatMessages" />
-        </section>
-        <div class="split-handle" @onpointerdown="OnHandlePointerDown"></div>
-        <section class="split-right" style="flex: @RightFlex; display: flex; flex-direction: column; overflow: hidden;">
+        @if (_chatCollapsed)
+        {
+            <aside class="chat-rail" @onclick="ExpandChat">
+                <span class="chat-rail-icon" title="Expand chat">💬</span>
+                <span class="chat-rail-expand" title="Expand chat">»</span>
+                @if (ChatMessages.Count > 0)
+                {
+                    <span class="chat-rail-badge">@ChatMessages.Count</span>
+                }
+            </aside>
+        }
+        else
+        {
+            <section class="split-left" style="flex: @LeftFlex">
+                <div class="chat-panel-header">
+                    <span class="chat-panel-title">💬 Chat</span>
+                    <button class="btn btn-sm btn-link chat-collapse-btn" @onclick="CollapseChat" title="Collapse chat">
+                        «
+                    </button>
+                </div>
+                <PromptInput @bind-Prompt="Prompt" IsRunning="IsRunning" OnRun="RunAsync" OnCancel="CancelAsync"
+                             OnClear="ClearConversation" Messages="ChatMessages" />
+            </section>
+            <div class="split-handle" @onpointerdown="OnHandlePointerDown"></div>
+        }
+        <section class="split-right"
+                 style="flex: @(_chatCollapsed ? 1 : RightFlex); display: flex; flex-direction: column; overflow: hidden;">
             <div class="d-flex border-bottom bg-light tab-bar">
                 <button
                     class="btn btn-sm @(ActiveTab == "chart" ? "btn-light fw-bold border-bottom-0" : "btn-link text-decoration-none text-secondary") rounded-0 px-3 py-2"
@@ -73,7 +94,7 @@
             {
                 <div class="orchestration-status-bar">
                     <PhaseProgress TotalPhases="_currentPlan.Phases.Count" CurrentPhase="_currentPhaseIndex"
-                                   CurrentPhaseName="_currentPhaseName" />
+                                   CurrentPhaseName="@_currentPhaseName" />
                 </div>
             }
         </section>
@@ -577,6 +598,10 @@
     // Resizable split pane
     private double LeftFlex { get; set; } = 1;
     private double RightFlex { get; set; } = 1;
+    private bool _chatCollapsed;
+
+    private void CollapseChat() => _chatCollapsed = true;
+    private void ExpandChat() => _chatCollapsed = false;
 
     private void OnHandlePointerDown(PointerEventArgs e) { /* handled in JS */ }
 
