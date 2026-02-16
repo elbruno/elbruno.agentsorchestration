@@ -11,6 +11,10 @@ A **.NET 10** library suite inspired by [Burke Holland's "Ultralight Orchestrati
 
 Build software automatically using a coordinated team of **11 specialized AI agents**—including **Orchestrator**, **Planner**, **Coder**, **Designer**, **Researcher**, **Fixer**, **BuildReviewer**, **SecurityExpert**, **TestingExpert**, **DocumentationExpert**, and **SoftwareArchitect**—that work together to execute your prompts.
 
+## 🚀 See It in Action
+
+![Aspire App Running](images/AgentOrch-Anim01%20(2).gif)
+
 ## Overview
 
 The libraries provide a production-ready orchestration engine with:
