@@ -20,7 +20,9 @@
     let nodes = [];
     let connections = [];
     let centerX = 0, centerY = 0;
-    let innerRadius = 140, outerRadius = 240;
+    // Elliptical radii (separate X and Y) to fill available width
+    let innerRx = 140, innerRy = 140;
+    let outerRx = 240, outerRy = 240;
     let startTime = performance.now();
 
     // ─── Theme palettes ───
@@ -106,16 +108,25 @@
         }
     }
 
-    // ─── Position calculation ───
+    // ─── Position calculation (elliptical) ───
     function calculatePositions() {
         if (!canvas) return;
         const w = canvas.width;
         const h = canvas.height;
         centerX = w / 2;
         centerY = h / 2;
-        const minDim = Math.min(w, h);
-        innerRadius = minDim * INNER_RING_RATIO;
-        outerRadius = minDim * OUTER_RING_RATIO;
+
+        // Pad for node size so nodes don't clip at edges
+        const padX = NODE_WIDTH / 2 + 16;
+        const padY = NODE_HEIGHT / 2 + 16;
+        const usableW = w - padX * 2;
+        const usableH = h - padY * 2;
+
+        // Elliptical radii: stretch independently on X and Y
+        innerRx = (usableW / 2) * INNER_RING_RATIO / 0.5;
+        innerRy = (usableH / 2) * INNER_RING_RATIO / 0.5;
+        outerRx = (usableW / 2) * OUTER_RING_RATIO / 0.5;
+        outerRy = (usableH / 2) * OUTER_RING_RATIO / 0.5;
 
         for (const node of nodes) {
             if (node.name === 'Orchestrator') {
@@ -126,15 +137,15 @@
             const coreIdx = CORE_AGENTS.indexOf(node.name);
             if (coreIdx >= 0) {
                 const angle = -Math.PI / 2 + (TWO_PI * coreIdx) / CORE_AGENTS.length;
-                node.x = centerX + innerRadius * Math.cos(angle);
-                node.y = centerY + innerRadius * Math.sin(angle);
+                node.x = centerX + innerRx * Math.cos(angle);
+                node.y = centerY + innerRy * Math.sin(angle);
             } else {
                 const specIdx = SPECIALIST_AGENTS.indexOf(node.name);
                 const idx = specIdx >= 0 ? specIdx : 0;
                 const total = Math.max(SPECIALIST_AGENTS.length, 1);
                 const angle = -Math.PI / 2 + (TWO_PI * idx) / total + (Math.PI / total);
-                node.x = centerX + outerRadius * Math.cos(angle);
-                node.y = centerY + outerRadius * Math.sin(angle);
+                node.x = centerX + outerRx * Math.cos(angle);
+                node.y = centerY + outerRy * Math.sin(angle);
             }
         }
     }
@@ -356,32 +367,32 @@
         }
     }
 
-    // ─── Draw ring guides ───
+    // ─── Draw ring guides (ellipses) ───
     function drawRings() {
-        // Inner ring (subtle dashed)
+        // Inner ellipse (subtle dashed)
         ctx.beginPath();
-        ctx.arc(centerX, centerY, innerRadius, 0, TWO_PI);
+        ctx.ellipse(centerX, centerY, innerRx, innerRy, 0, 0, TWO_PI);
         ctx.strokeStyle = palette.ringInner;
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 8]);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Outer ring (subtle dashed)
+        // Outer ellipse (subtle dashed)
         ctx.beginPath();
-        ctx.arc(centerX, centerY, outerRadius, 0, TWO_PI);
+        ctx.ellipse(centerX, centerY, outerRx, outerRy, 0, 0, TWO_PI);
         ctx.strokeStyle = palette.ringOuter;
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 8]);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Ring labels
+        // Ring labels (top of each ellipse)
         ctx.font = '9px "Segoe UI", sans-serif';
         ctx.textAlign = 'left';
         ctx.fillStyle = palette.ringLabel;
-        ctx.fillText('Core Agents', centerX + innerRadius - 30, centerY - innerRadius - 6);
-        ctx.fillText('Specialists', centerX + outerRadius - 28, centerY - outerRadius - 6);
+        ctx.fillText('Core Agents', centerX + innerRx * 0.5, centerY - innerRy - 6);
+        ctx.fillText('Specialists', centerX + outerRx * 0.5, centerY - outerRy - 6);
     }
 
     // ─── Main render loop ───
