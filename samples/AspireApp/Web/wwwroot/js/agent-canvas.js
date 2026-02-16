@@ -1,17 +1,18 @@
 // Agent Canvas - HTML5 Canvas rendering engine for agent network visualization
-// Two-ring layout: Orchestrator center, 6 core agents inner ring, 5 specialists outer ring
+// Two-ring elliptical layout with zoom, pan, and draggable nodes
 (function () {
     'use strict';
 
     const TWO_PI = Math.PI * 2;
-    const INNER_RING_RATIO = 0.32;
-    const OUTER_RING_RATIO = 0.46;
+    const INNER_RING_RATIO = 0.30;
+    const OUTER_RING_RATIO = 0.48;
     const NODE_WIDTH = 120;
     const NODE_HEIGHT = 68;
     const NODE_RADIUS = 12;
     const ANIMATION_DURATION = 500;
     const GLOW_CYCLE = 2000;
     const PARTICLE_SPEED = 0.0015;
+    const MIN_NODE_GAP = 8; // minimum px gap between nodes after collision resolution
 
     let canvas, ctx, dotNetRef;
     let animFrameId = null;
@@ -20,10 +21,23 @@
     let nodes = [];
     let connections = [];
     let centerX = 0, centerY = 0;
-    // Elliptical radii (separate X and Y) to fill available width
     let innerRx = 140, innerRy = 140;
     let outerRx = 240, outerRy = 240;
     let startTime = performance.now();
+
+    // ─── View transform (zoom & pan) ───
+    let viewScale = 1;
+    let viewOffsetX = 0, viewOffsetY = 0;
+    const MIN_ZOOM = 0.3;
+    const MAX_ZOOM = 3.0;
+
+    // ─── Interaction state ───
+    let dragNode = null;       // node being dragged
+    let isPanning = false;     // background pan in progress
+    let panStartX = 0, panStartY = 0;
+    let panStartOffX = 0, panStartOffY = 0;
+    let dragStartX = 0, dragStartY = 0;
+    let didDrag = false;       // distinguish drag from click
 
     // ─── Theme palettes ───
     const DARK_PALETTE = {
@@ -91,6 +105,7 @@
             this.glowPhase = Math.random() * TWO_PI;
             this.activatedAt = 0;
             this.phases = []; // track which phases activated this agent
+            this._userDragged = false; // true if user manually dragged this node
         }
     }
 
@@ -108,7 +123,7 @@
         }
     }
 
-    // ─── Position calculation (elliptical) ───
+    // ─── Position calculation (elliptical + collision resolution) ───
     function calculatePositions() {
         if (!canvas) return;
         const w = canvas.width;
@@ -117,18 +132,32 @@
         centerY = h / 2;
 
         // Pad for node size so nodes don't clip at edges
-        const padX = NODE_WIDTH / 2 + 16;
-        const padY = NODE_HEIGHT / 2 + 16;
+        const padX = NODE_WIDTH / 2 + 24;
+        const padY = NODE_HEIGHT / 2 + 24;
         const usableW = w - padX * 2;
         const usableH = h - padY * 2;
 
-        // Elliptical radii: stretch independently on X and Y
-        innerRx = (usableW / 2) * INNER_RING_RATIO / 0.5;
-        innerRy = (usableH / 2) * INNER_RING_RATIO / 0.5;
-        outerRx = (usableW / 2) * OUTER_RING_RATIO / 0.5;
-        outerRy = (usableH / 2) * OUTER_RING_RATIO / 0.5;
+        // Elliptical radii based on available space
+        innerRx = (usableW / 2) * INNER_RING_RATIO * 2;
+        innerRy = (usableH / 2) * INNER_RING_RATIO * 2;
+        outerRx = (usableW / 2) * OUTER_RING_RATIO * 2;
+        outerRy = (usableH / 2) * OUTER_RING_RATIO * 2;
+
+        // Clamp so inner ring never gets too close to outer ring
+        const minGap = NODE_HEIGHT + MIN_NODE_GAP * 2;
+        if (outerRy - innerRy < minGap) {
+            const mid = (outerRy + innerRy) / 2;
+            innerRy = mid - minGap / 2;
+            outerRy = mid + minGap / 2;
+        }
+        if (outerRx - innerRx < minGap) {
+            const mid = (outerRx + innerRx) / 2;
+            innerRx = mid - minGap / 2;
+            outerRx = mid + minGap / 2;
+        }
 
         for (const node of nodes) {
+            if (node._userDragged) continue; // preserve user-dragged position
             if (node.name === 'Orchestrator') {
                 node.x = centerX;
                 node.y = centerY;
@@ -147,6 +176,47 @@
                 node.x = centerX + outerRx * Math.cos(angle);
                 node.y = centerY + outerRy * Math.sin(angle);
             }
+        }
+
+        // Collision resolution — push overlapping nodes apart
+        resolveCollisions();
+    }
+
+    function resolveCollisions() {
+        const iterations = 6;
+        const nodeW = NODE_WIDTH + MIN_NODE_GAP;
+        const nodeH = NODE_HEIGHT + MIN_NODE_GAP;
+
+        for (let iter = 0; iter < iterations; iter++) {
+            let anyOverlap = false;
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const a = nodes[i];
+                    const b = nodes[j];
+                    if (a._userDragged || b._userDragged) continue;
+                    const dx = b.x - a.x;
+                    const dy = b.y - a.y;
+                    const overlapX = nodeW - Math.abs(dx);
+                    const overlapY = nodeH - Math.abs(dy);
+
+                    if (overlapX > 0 && overlapY > 0) {
+                        anyOverlap = true;
+                        // Push apart along the axis with less overlap
+                        if (overlapX < overlapY) {
+                            const pushX = overlapX / 2 + 1;
+                            const signX = dx >= 0 ? 1 : -1;
+                            a.x -= signX * pushX;
+                            b.x += signX * pushX;
+                        } else {
+                            const pushY = overlapY / 2 + 1;
+                            const signY = dy >= 0 ? 1 : -1;
+                            a.y -= signY * pushY;
+                            b.y += signY * pushY;
+                        }
+                    }
+                }
+            }
+            if (!anyOverlap) break;
         }
     }
 
@@ -402,9 +472,14 @@
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Background
+        // Background (full canvas, no transform)
         ctx.fillStyle = palette.background;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Apply view transform (zoom + pan)
+        ctx.save();
+        ctx.translate(viewOffsetX, viewOffsetY);
+        ctx.scale(viewScale, viewScale);
 
         // Draw ring guides
         drawRings();
@@ -419,28 +494,175 @@
             drawNode(node, now);
         }
 
+        ctx.restore();
+
+        // Draw zoom indicator (bottom-right, outside transform)
+        if (viewScale !== 1.0) {
+            ctx.font = '10px "Segoe UI", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillStyle = palette.textMuted || palette.textIdle;
+            ctx.globalAlpha = 0.6;
+            ctx.fillText(`${Math.round(viewScale * 100)}%`, canvas.width - 12, canvas.height - 10);
+            ctx.globalAlpha = 1;
+        }
+
         animFrameId = requestAnimationFrame(render);
     }
 
-    // ─── Hit testing ───
-    function handleClick(e) {
-        if (!canvas) return;
+    // ─── Screen ↔ World coordinate conversion ───
+    function screenToWorld(sx, sy) {
+        return {
+            x: (sx - viewOffsetX) / viewScale,
+            y: (sy - viewOffsetY) / viewScale
+        };
+    }
+
+    function getCanvasXY(e) {
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
-        const mx = (e.clientX - rect.left) * scaleX;
-        const my = (e.clientY - rect.top) * scaleY;
+        return {
+            sx: (e.clientX - rect.left) * scaleX,
+            sy: (e.clientY - rect.top) * scaleY
+        };
+    }
 
-        for (const node of nodes) {
+    function hitTestNode(wx, wy) {
+        // Iterate in reverse so topmost (last-drawn) node is hit first
+        for (let i = nodes.length - 1; i >= 0; i--) {
+            const node = nodes[i];
             const nx = node.x - NODE_WIDTH / 2;
             const ny = node.y - NODE_HEIGHT / 2;
-            if (mx >= nx && mx <= nx + NODE_WIDTH && my >= ny && my <= ny + NODE_HEIGHT) {
-                if (dotNetRef) {
-                    dotNetRef.invokeMethodAsync('OnCanvasNodeClicked', node.name);
-                }
-                break;
+            if (wx >= nx && wx <= nx + NODE_WIDTH && wy >= ny && wy <= ny + NODE_HEIGHT) {
+                return node;
             }
         }
+        return null;
+    }
+
+    // ─── Mouse / pointer event handlers ───
+    function onPointerDown(e) {
+        if (!canvas) return;
+        const { sx, sy } = getCanvasXY(e);
+        const { x: wx, y: wy } = screenToWorld(sx, sy);
+
+        didDrag = false;
+
+        // Right-click or middle-click → start panning
+        if (e.button === 1 || e.button === 2) {
+            isPanning = true;
+            panStartX = sx;
+            panStartY = sy;
+            panStartOffX = viewOffsetX;
+            panStartOffY = viewOffsetY;
+            canvas.setPointerCapture(e.pointerId);
+            e.preventDefault();
+            return;
+        }
+
+        // Left-click → check if on a node → start dragging
+        if (e.button === 0) {
+            const hit = hitTestNode(wx, wy);
+            if (hit) {
+                dragNode = hit;
+                dragStartX = wx;
+                dragStartY = wy;
+                canvas.setPointerCapture(e.pointerId);
+                e.preventDefault();
+                return;
+            }
+            // Left-click on background → also allow pan
+            isPanning = true;
+            panStartX = sx;
+            panStartY = sy;
+            panStartOffX = viewOffsetX;
+            panStartOffY = viewOffsetY;
+            canvas.setPointerCapture(e.pointerId);
+        }
+    }
+
+    function onPointerMove(e) {
+        if (!canvas) return;
+        const { sx, sy } = getCanvasXY(e);
+
+        if (dragNode) {
+            const { x: wx, y: wy } = screenToWorld(sx, sy);
+            const dx = wx - dragStartX;
+            const dy = wy - dragStartY;
+            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) didDrag = true;
+            dragNode.x = dragStartX + dx * 1; // direct follow
+            dragNode.y = dragStartY + dy * 1;
+            // We need to update dragStart so movement is relative
+            dragNode.x = wx;
+            dragNode.y = wy;
+            dragStartX = wx;
+            dragStartY = wy;
+            dragNode._userDragged = true;
+            // Update cursor
+            canvas.style.cursor = 'grabbing';
+            return;
+        }
+
+        if (isPanning) {
+            const dx = sx - panStartX;
+            const dy = sy - panStartY;
+            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) didDrag = true;
+            viewOffsetX = panStartOffX + dx;
+            viewOffsetY = panStartOffY + dy;
+            canvas.style.cursor = 'grabbing';
+            return;
+        }
+
+        // Hover cursor
+        const { x: wx, y: wy } = screenToWorld(sx, sy);
+        const hovered = hitTestNode(wx, wy);
+        canvas.style.cursor = hovered ? 'grab' : 'default';
+    }
+
+    function onPointerUp(e) {
+        if (!canvas) return;
+
+        if (dragNode && !didDrag) {
+            // It was a click, not a drag — fire the node clicked callback
+            if (dotNetRef) {
+                dotNetRef.invokeMethodAsync('OnCanvasNodeClicked', dragNode.name);
+            }
+        }
+
+        dragNode = null;
+        isPanning = false;
+        canvas.style.cursor = 'default';
+    }
+
+    function onWheel(e) {
+        if (!canvas) return;
+        e.preventDefault();
+        const { sx, sy } = getCanvasXY(e);
+
+        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+        const newScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, viewScale * zoomFactor));
+
+        // Zoom toward cursor position
+        const ratio = newScale / viewScale;
+        viewOffsetX = sx - (sx - viewOffsetX) * ratio;
+        viewOffsetY = sy - (sy - viewOffsetY) * ratio;
+        viewScale = newScale;
+    }
+
+    function onContextMenu(e) {
+        e.preventDefault(); // prevent right-click menu on canvas
+    }
+
+    function onDblClick(e) {
+        // Double-click to reset zoom/pan
+        viewScale = 1;
+        viewOffsetX = 0;
+        viewOffsetY = 0;
+        // Also reset dragged nodes to default positions
+        for (const node of nodes) {
+            node._userDragged = false;
+        }
+        calculatePositions();
     }
 
     function handleResize() {
@@ -484,12 +706,23 @@
             });
             themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-            canvas.addEventListener('click', handleClick);
+            // Pointer events for drag, pan, click
+            canvas.addEventListener('pointerdown', onPointerDown);
+            canvas.addEventListener('pointermove', onPointerMove);
+            canvas.addEventListener('pointerup', onPointerUp);
+            canvas.addEventListener('wheel', onWheel, { passive: false });
+            canvas.addEventListener('contextmenu', onContextMenu);
+            canvas.addEventListener('dblclick', onDblClick);
 
             resizeObserver = new ResizeObserver(() => handleResize());
             if (canvas.parentElement) {
                 resizeObserver.observe(canvas.parentElement);
             }
+
+            // Reset view transform
+            viewScale = 1;
+            viewOffsetX = 0;
+            viewOffsetY = 0;
 
             handleResize();
             startTime = performance.now();
@@ -593,8 +826,13 @@
                 node.status = 'idle';
                 node.instruction = '';
                 node.phases = [];
+                node._userDragged = false;
             }
             connections = [];
+            viewScale = 1;
+            viewOffsetX = 0;
+            viewOffsetY = 0;
+            calculatePositions();
         },
 
         resize: function () {
@@ -615,13 +853,21 @@
                 themeObserver = null;
             }
             if (canvas) {
-                canvas.removeEventListener('click', handleClick);
+                canvas.removeEventListener('pointerdown', onPointerDown);
+                canvas.removeEventListener('pointermove', onPointerMove);
+                canvas.removeEventListener('pointerup', onPointerUp);
+                canvas.removeEventListener('wheel', onWheel);
+                canvas.removeEventListener('contextmenu', onContextMenu);
+                canvas.removeEventListener('dblclick', onDblClick);
             }
             canvas = null;
             ctx = null;
             dotNetRef = null;
             nodes = [];
             connections = [];
+            viewScale = 1;
+            viewOffsetX = 0;
+            viewOffsetY = 0;
         }
     };
 })();
