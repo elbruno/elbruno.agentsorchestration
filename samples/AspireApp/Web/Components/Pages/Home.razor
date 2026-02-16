@@ -50,12 +50,6 @@
                             <PlanViewer Plan="_currentPlan" CurrentPhaseIndex="_currentPhaseIndex"
                                         ShowActions="_planAwaitingApproval" IsExecuting="IsRunning && !_planAwaitingApproval"
                                         OnApprove="ApprovePlan" OnCancel="RejectPlan" PlanMarkdown="@_currentPlanMarkdown" />
-
-                            @if (IsRunning && !_planAwaitingApproval && _currentPlan is not null)
-                            {
-                                <PhaseProgress TotalPhases="_currentPlan.Phases.Count" CurrentPhase="_currentPhaseIndex"
-                                               CurrentPhaseName="_currentPhaseName" />
-                            }
                         }
                         else
                         {
@@ -73,6 +67,15 @@
                     </div>
                 }
             </div>
+
+            @* Status bar — always visible below tabs *@
+            @if (IsRunning && !_planAwaitingApproval && _currentPlan is not null)
+            {
+                <div class="orchestration-status-bar">
+                    <PhaseProgress TotalPhases="_currentPlan.Phases.Count" CurrentPhase="_currentPhaseIndex"
+                                   CurrentPhaseName="_currentPhaseName" />
+                </div>
+            }
         </section>
     </div>
 
@@ -222,6 +225,10 @@
         _buildSucceeded = false;
         _runCts = new CancellationTokenSource();
         _currentSessionId = Guid.NewGuid().ToString("N");
+
+        // Reset canvas connections and phase badges for the new run
+        if (_canvasChart is not null)
+            await _canvasChart.ResetAllAsync();
 
         using var scope = ScopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<OrchestrationService>();
@@ -454,12 +461,15 @@
             var activatedColor = GetAgentColor(activated2.Role.ToString());
             var taskDesc = activated2.TaskDescription;
             var roleName = activated2.Role.ToString();
+            var phaseIdx = _currentPhaseIndex;
             _ = InvokeAsync(async () =>
             {
                 if (_canvasChart is not null)
                 {
                     await _canvasChart.ActivateNodeAsync(roleName, activatedColor, taskDesc);
                     await _canvasChart.DrawConnectionAsync("Orchestrator", roleName, activatedColor, true);
+                    if (phaseIdx > 0)
+                        await _canvasChart.AddNodePhaseAsync(roleName, phaseIdx);
                 }
             });
         }

@@ -16,11 +16,62 @@
     let canvas, ctx, dotNetRef;
     let animFrameId = null;
     let resizeObserver = null;
+    let themeObserver = null;
     let nodes = [];
     let connections = [];
     let centerX = 0, centerY = 0;
     let innerRadius = 140, outerRadius = 240;
     let startTime = performance.now();
+
+    // ─── Theme palettes ───
+    const DARK_PALETTE = {
+        background: '#0d1117',
+        nodeFill: '#161b22',
+        nodeActiveFill: 'rgba(88,166,255,0.08)',
+        border: '#30363d',
+        borderComplete: '#3fb950',
+        textIcon: '#ffffff',
+        textIdle: '#484f58',
+        textStatus: '#8b949e',
+        textComplete: '#3fb950',
+        ringInner: '#21262d',
+        ringOuter: '#1b1f24',
+        ringLabel: '#30363d',
+        coreDot: '#58a6ff',
+        specialistDot: '#6f42c1',
+        completedConn: 'rgba(139,148,158,0.3)',
+        phaseBadgeBg: 'rgba(88,166,255,0.15)',
+        phaseBadgeBorder: 'rgba(88,166,255,0.4)',
+        phaseBadgeText: '#58a6ff',
+    };
+
+    const LIGHT_PALETTE = {
+        background: '#ffffff',
+        nodeFill: '#f6f8fa',
+        nodeActiveFill: 'rgba(9,105,218,0.06)',
+        border: '#d0d7de',
+        borderComplete: '#1a7f37',
+        textIcon: '#24292f',
+        textIdle: '#6e7781',
+        textStatus: '#57606a',
+        textComplete: '#1a7f37',
+        ringInner: '#d8dee4',
+        ringOuter: '#eaeef2',
+        ringLabel: '#afb8c1',
+        coreDot: '#0969da',
+        specialistDot: '#8250df',
+        completedConn: 'rgba(87,96,106,0.25)',
+        phaseBadgeBg: 'rgba(9,105,218,0.1)',
+        phaseBadgeBorder: 'rgba(9,105,218,0.35)',
+        phaseBadgeText: '#0969da',
+    };
+
+    let palette = DARK_PALETTE;
+
+    function detectTheme() {
+        const attr = document.documentElement.getAttribute('data-theme');
+        palette = (attr === 'light') ? LIGHT_PALETTE : DARK_PALETTE;
+    }
 
     const CORE_AGENTS = ['Planner', 'Coder', 'BuildReviewer', 'Designer', 'Researcher', 'Fixer'];
     const SPECIALIST_AGENTS = ['SecurityExpert', 'TestingExpert', 'DocumentationExpert', 'SoftwareArchitect'];
@@ -37,10 +88,12 @@
             this.y = 0;
             this.glowPhase = Math.random() * TWO_PI;
             this.activatedAt = 0;
+            this.phases = []; // track which phases activated this agent
         }
     }
 
     // ─── Connection class ───
+    // States: idle, animating, active, fading, completed
     class Connection {
         constructor(from, to, color) {
             this.from = from;
@@ -130,6 +183,7 @@
 
         let drawFraction = 1;
         let alpha = 1;
+        let useDash = false;
 
         if (conn.state === 'animating') {
             const elapsed = now - conn.animStart;
@@ -144,14 +198,20 @@
             const elapsed = now - conn.animStart;
             alpha = Math.max(1 - elapsed / 600, 0);
             if (alpha <= 0) {
-                conn.state = 'idle';
+                conn.state = 'completed';
                 return;
             }
+        } else if (conn.state === 'completed') {
+            // Persistent dotted line for completed connections
+            alpha = 0.35;
+            useDash = true;
         } else if (conn.state === 'idle') {
-            alpha = 0.12;
+            return; // don't draw idle connections
         }
 
         const steps = Math.max(Math.floor(drawFraction * 40), 2);
+
+        if (useDash) ctx.setLineDash([6, 4]);
 
         ctx.beginPath();
         const p0 = getBezierPoint(fromNode, toNode, 0);
@@ -162,10 +222,12 @@
             const p = getBezierPoint(fromNode, toNode, t);
             ctx.lineTo(p.x, p.y);
         }
-        ctx.strokeStyle = conn.color;
+        ctx.strokeStyle = conn.state === 'completed' ? palette.completedConn : conn.color;
         ctx.globalAlpha = alpha;
         ctx.lineWidth = conn.state === 'active' ? 2.5 : 1.5;
         ctx.stroke();
+
+        if (useDash) ctx.setLineDash([]);
 
         // Traveling particle for active connections
         if (conn.state === 'active') {
@@ -207,17 +269,17 @@
 
         // Background fill
         drawRoundedRect(nx, ny, NODE_WIDTH, NODE_HEIGHT, NODE_RADIUS);
-        ctx.fillStyle = node.status === 'active' ? 'rgba(88,166,255,0.08)' : '#161b22';
+        ctx.fillStyle = node.status === 'active' ? palette.nodeActiveFill : palette.nodeFill;
         ctx.fill();
 
         // Border
-        let borderColor = '#30363d';
+        let borderColor = palette.border;
         let borderWidth = 1.5;
         if (node.status === 'active') {
             borderColor = node.color;
             borderWidth = 2.5;
         } else if (node.status === 'complete') {
-            borderColor = '#3fb950';
+            borderColor = palette.borderComplete;
             borderWidth = 2;
         }
         drawRoundedRect(nx, ny, NODE_WIDTH, NODE_HEIGHT, NODE_RADIUS);
@@ -233,7 +295,7 @@
         ctx.font = '18px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = palette.textIcon;
         ctx.fillText(node.icon, node.x, node.y - 16);
 
         // Name
@@ -244,16 +306,16 @@
         // Status text
         if (node.status === 'active') {
             ctx.font = '9px "Segoe UI", sans-serif';
-            ctx.fillStyle = '#8b949e';
+            ctx.fillStyle = palette.textStatus;
             const label = truncate(node.instruction, 18);
             ctx.fillText(label, node.x, node.y + 20);
         } else if (node.status === 'complete') {
             ctx.font = '10px "Segoe UI", sans-serif';
-            ctx.fillStyle = '#3fb950';
+            ctx.fillStyle = palette.textComplete;
             ctx.fillText('\u2713 done', node.x, node.y + 20);
         } else {
             ctx.font = '9px "Segoe UI", sans-serif';
-            ctx.fillStyle = '#484f58';
+            ctx.fillStyle = palette.textIdle;
             ctx.fillText('idle', node.x, node.y + 20);
         }
 
@@ -262,10 +324,35 @@
         if (!isOrchestrator) {
             ctx.beginPath();
             ctx.arc(node.x + NODE_WIDTH / 2 - 8, ny + 8, 3, 0, TWO_PI);
-            ctx.fillStyle = isSpecialist ? '#6f42c1' : '#58a6ff';
+            ctx.fillStyle = isSpecialist ? palette.specialistDot : palette.coreDot;
             ctx.globalAlpha = 0.6;
             ctx.fill();
             ctx.globalAlpha = 1;
+        }
+
+        // Phase badge — show which phases called this agent e.g. [2-6]
+        if (node.phases.length > 0) {
+            const min = Math.min(...node.phases);
+            const max = Math.max(...node.phases);
+            const badgeText = min === max ? `[${min}]` : `[${min}-${max}]`;
+
+            ctx.font = 'bold 9px "Segoe UI", sans-serif';
+            const tw = ctx.measureText(badgeText).width;
+            const bw = tw + 8;
+            const bh = 16;
+            const bx = node.x + NODE_WIDTH / 2 - bw - 2;
+            const by = node.y + NODE_HEIGHT / 2 - bh - 2;
+
+            drawRoundedRect(bx, by, bw, bh, 4);
+            ctx.fillStyle = palette.phaseBadgeBg;
+            ctx.fill();
+            ctx.strokeStyle = palette.phaseBadgeBorder;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = palette.phaseBadgeText;
+            ctx.textAlign = 'center';
+            ctx.fillText(badgeText, bx + bw / 2, by + bh / 2);
         }
     }
 
@@ -274,7 +361,7 @@
         // Inner ring (subtle dashed)
         ctx.beginPath();
         ctx.arc(centerX, centerY, innerRadius, 0, TWO_PI);
-        ctx.strokeStyle = '#21262d';
+        ctx.strokeStyle = palette.ringInner;
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 8]);
         ctx.stroke();
@@ -283,7 +370,7 @@
         // Outer ring (subtle dashed)
         ctx.beginPath();
         ctx.arc(centerX, centerY, outerRadius, 0, TWO_PI);
-        ctx.strokeStyle = '#1b1f24';
+        ctx.strokeStyle = palette.ringOuter;
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 8]);
         ctx.stroke();
@@ -292,7 +379,7 @@
         // Ring labels
         ctx.font = '9px "Segoe UI", sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillStyle = '#30363d';
+        ctx.fillStyle = palette.ringLabel;
         ctx.fillText('Core Agents', centerX + innerRadius - 30, centerY - innerRadius - 6);
         ctx.fillText('Specialists', centerX + outerRadius - 28, centerY - outerRadius - 6);
     }
@@ -305,7 +392,7 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Background
-        ctx.fillStyle = '#0d1117';
+        ctx.fillStyle = palette.background;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Draw ring guides
@@ -373,6 +460,19 @@
             ctx = canvas.getContext('2d');
             dotNetRef = ref;
 
+            // Detect current theme
+            detectTheme();
+
+            // Watch for theme changes via data-theme attribute
+            themeObserver = new MutationObserver(function (mutations) {
+                for (const m of mutations) {
+                    if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+                        detectTheme();
+                    }
+                }
+            });
+            themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
             canvas.addEventListener('click', handleClick);
 
             resizeObserver = new ResizeObserver(() => handleResize());
@@ -413,6 +513,7 @@
             if (node) {
                 node.status = 'idle';
                 node.instruction = '';
+                node.phases = [];
             }
         },
 
@@ -421,6 +522,17 @@
             if (node) {
                 node.instruction = instruction || '';
             }
+        },
+
+        addNodePhase: function (name, phaseNumber) {
+            const node = getNodeByName(name);
+            if (node && !node.phases.includes(phaseNumber)) {
+                node.phases.push(phaseNumber);
+            }
+        },
+
+        setTheme: function (isDark) {
+            palette = isDark ? DARK_PALETTE : LIGHT_PALETTE;
         },
 
         drawConnection: function (from, to, color, animated) {
@@ -465,6 +577,15 @@
             }
         },
 
+        resetAll: function () {
+            for (const node of nodes) {
+                node.status = 'idle';
+                node.instruction = '';
+                node.phases = [];
+            }
+            connections = [];
+        },
+
         resize: function () {
             handleResize();
         },
@@ -477,6 +598,10 @@
             if (resizeObserver) {
                 resizeObserver.disconnect();
                 resizeObserver = null;
+            }
+            if (themeObserver) {
+                themeObserver.disconnect();
+                themeObserver = null;
             }
             if (canvas) {
                 canvas.removeEventListener('click', handleClick);

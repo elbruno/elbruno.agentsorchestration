@@ -85,6 +85,18 @@
         await JS.InvokeVoidAsync("agentCanvas.deactivateAll");
     }
 
+    public async Task AddNodePhaseAsync(string name, int phaseNumber)
+    {
+        if (!_initialized) return;
+        await JS.InvokeVoidAsync("agentCanvas.addNodePhase", name, phaseNumber);
+    }
+
+    public async Task ResetAllAsync()
+    {
+        if (!_initialized) return;
+        await JS.InvokeVoidAsync("agentCanvas.resetAll");
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_initialized)
