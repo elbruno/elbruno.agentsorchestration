@@ -20,7 +20,8 @@
     </Folder>
     <Project Path="samples/ConsoleCompleteChat/ElBruno.AgentsOrchestration.Console.csproj" />
     <Project Path="samples/ConsoleSimple/ConsoleSimple.csproj" />
-    <Project Path="samples/ConsoleDynamicAgents/ConsoleDynamicAgents.csproj" />
+    <Project Path="samples/AddAndListCustomAgents/AddAndListCustomAgents.csproj" />
+    <Project Path="samples/ConsoleWinFormsGenerator/ConsoleWinFormsGenerator.csproj" />
     <Project Path="samples/ConsoleFlowTraces/ConsoleFlowTraces.csproj" />
   </Folder>
 </Solution>

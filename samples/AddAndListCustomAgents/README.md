@@ -1,6 +1,6 @@
-# ConsoleDynamicAgents Sample
+# AddAndListCustomAgents Sample
 
-This sample demonstrates how to dynamically load agent definitions from the [Awesome Copilot Repository](https://github.com/github/awesome-copilot) and integrate them into the orchestration system.
+This sample demonstrates how to dynamically load and register custom agent definitions from the [Awesome Copilot Repository](https://github.com/github/awesome-copilot) and integrate them into the orchestration system.
 
 ## Features
 
@@ -12,7 +12,7 @@ This sample demonstrates how to dynamically load agent definitions from the [Awe
 ## Running the Sample
 
 ```bash
-cd samples/ConsoleDynamicAgents
+cd samples/AddAndListCustomAgents
 dotnet run
 ```
 
@@ -54,13 +54,17 @@ dotnet run
 ## Use Cases
 
 ### Scenario 1: WinForms Project
+
 When building a WinForms application, the WinForms Expert agent can be loaded to:
+
 - Validate WinForms Designer-compatible code
 - Ensure proper MVVM binding patterns
 - Review InitializeComponent methods
 
 ### Scenario 2: Security Review
+
 The Security Reviewer can be added to the pipeline to:
+
 - Review code for OWASP Top 10 vulnerabilities
 - Check LLM security (prompt injection, etc.)
 - Enforce Zero Trust principles
@@ -123,6 +127,8 @@ await manager.LoadAndRegisterAgentAsync("WinFormsExpert");
 
 ## Learn More
 
+- [ConsoleWinFormsGenerator](../ConsoleWinFormsGenerator) — See dynamic agents in action generating applications
 - [Awesome Copilot Repository](https://github.com/github/awesome-copilot)
 - [Available Agents](https://github.com/github/awesome-copilot/blob/main/docs/README.agents.md)
 - [Main Documentation](../../README.md)
+- [Dynamic Agents Guide](../../docs/DYNAMIC_AGENTS.md)

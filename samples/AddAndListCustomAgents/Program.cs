@@ -1,7 +1,7 @@
 using ElBruno.AgentsOrchestration.Agents;
 using ElBruno.AgentsOrchestration.AgentRepository.Services;
 
-namespace ConsoleDynamicAgents;
+namespace AddAndListCustomAgents;
 
 class Program
 {

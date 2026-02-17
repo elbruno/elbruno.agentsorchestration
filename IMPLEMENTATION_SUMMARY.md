@@ -16,6 +16,7 @@ A complete NuGet package for dynamic agent management with:
 - **Agent Management**: Register, query, and remove dynamic agents
 
 **Key Classes:**
+
 - `AwesomeCopilotAgentLoader` - Downloads and caches agents
 - `AgentDefinitionParser` - Parses `.agent.md` format
 - `DynamicAgentManager` - Unified management of static + dynamic agents
@@ -30,7 +31,7 @@ Extended the existing Core library with:
 - `DynamicAgentServiceCollectionExtensions` - Dependency injection setup
 - Project reference to AgentRepository library
 
-### 3. Sample Application: ConsoleDynamicAgents
+### 3. Sample Application: AddAndListCustomAgents
 
 A complete working example demonstrating:
 
@@ -63,7 +64,7 @@ Four comprehensive documentation files:
    - Best practices
    - Troubleshooting
 
-2. **samples/ConsoleDynamicAgents/README.md**
+2. **samples/AddAndListCustomAgents/README.md**
    - Quick start guide
    - Expected output
    - API usage examples
@@ -136,6 +137,7 @@ tools: ['codebase', 'search']
 ```
 
 Extracts metadata while gracefully handling:
+
 - Quoted/unquoted values
 - Arrays
 - Missing fields
@@ -157,6 +159,7 @@ var agent = await manager.LoadAndRegisterAgentAsync("WinFormsExpert");
 ```
 
 **Output:**
+
 ```
 ✅ Loaded: WinForms Expert
    Icon: 👨‍💼
@@ -177,6 +180,7 @@ var agent = await manager.LoadAndRegisterAgentAsync("se-security-reviewer");
 ```
 
 **Output:**
+
 ```
 ✅ Loaded: SE: Security
    Icon: 🔒
@@ -228,6 +232,7 @@ var agents = manager.GetAllAgents(); // 11 static + 1 dynamic = 12
 ## Files Changed
 
 ### Added (18 files)
+
 ```
 src/ElBruno.AgentsOrchestration.AgentRepository/
   ├── *.csproj
@@ -238,13 +243,14 @@ src/ElBruno.AgentsOrchestration.Core/
   ├── Agents/DynamicAgentFactory.cs
   └── Extensions/DynamicAgentServiceCollectionExtensions.cs
 
-samples/ConsoleDynamicAgents/ (3 files)
+samples/AddAndListCustomAgents/ (3 files)
 tests/AgentsOrchestration.AgentRepository.Tests/ (4 files)
 docs/DYNAMIC_AGENTS.md
 docs/plans/plan_260217_0023.md
 ```
 
 ### Modified (4 files)
+
 ```
 AgentsOrchestration.slnx
 src/ElBruno.AgentsOrchestration.Core/*.csproj
@@ -325,10 +331,10 @@ While the core feature is complete, these could be added later:
 
 ## Resources
 
-- **Sample:** [samples/ConsoleDynamicAgents](../samples/ConsoleDynamicAgents)
+- **Sample:** [samples/AddAndListCustomAgents](../samples/AddAndListCustomAgents)
 - **Documentation:** [docs/DYNAMIC_AGENTS.md](../docs/DYNAMIC_AGENTS.md)
-- **Awesome Copilot:** https://github.com/github/awesome-copilot
-- **Available Agents:** https://github.com/github/awesome-copilot/tree/main/agents
+- **Awesome Copilot:** <https://github.com/github/awesome-copilot>
+- **Available Agents:** <https://github.com/github/awesome-copilot/tree/main/agents>
 
 ## Conclusion
 
@@ -337,6 +343,7 @@ While the core feature is complete, these could be added later:
 The dynamic agent loading feature is complete, tested, documented, and production-ready. It successfully addresses both required scenarios (WinForms Expert and Security Reviewer) and provides a robust foundation for community-driven agent extensions.
 
 Users can now:
+
 - Load specialized agents at runtime
 - Extend the orchestration without modifying core code
 - Leverage community knowledge from Awesome Copilot

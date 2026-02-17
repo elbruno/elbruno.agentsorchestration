@@ -14,11 +14,12 @@ Build software automatically using a coordinated team of **11 specialized AI age
 ## ✨ New: Dynamic Agent Loading
 
 Load specialized agents from the [Awesome Copilot Repository](https://github.com/github/awesome-copilot) at runtime! Extend your orchestration with domain-specific experts like:
+
 - **WinForms Expert** for Windows Forms development
 - **Security Reviewer** for OWASP Top 10 and LLM security
 - **Any custom agent** you create or find in the community
 
-See [ConsoleDynamicAgents sample](samples/ConsoleDynamicAgents) for a working example.
+See [AddAndListCustomAgents sample](samples/AddAndListCustomAgents) to load custom agents, or [ConsoleWinFormsGenerator](samples/ConsoleWinFormsGenerator) to see agents generating applications.
 
 ## 🚀 See It in Action
 
@@ -49,11 +50,13 @@ The libraries provide a production-ready orchestration engine with:
 - **🤖 [All Agents](docs/agents.md)** — Complete guide to all 11 agents and their roles
 - **🔎 [Researcher Agent](docs/RESEARCHER_AGENT.md)** — Complete guide to the research agent and inter-agent communication
 - **📖 [Using the Libraries](docs/using-the-libraries.md)** — How to integrate into your own projects
-- **🎯 [Samples Overview](docs/samples-overview.md)** — Complete guide to all four samples
-- **💡 [Samples](samples/)** — Four ready-to-run examples:
+- **🎯 [Samples Overview](docs/samples-overview.md)** — Complete guide to all six samples
+- **💡 [Samples](samples/)** — Six ready-to-run examples:
   - **[ConsoleSimple](samples/ConsoleSimple)** — Minimal demo (weather app)
   - **[ConsoleCompleteChat](samples/ConsoleCompleteChat)** — Full interactive multi-turn chat
   - **[ConsoleFlowTraces](samples/ConsoleFlowTraces)** — Flow tracing and call graph visualization
+  - **[AddAndListCustomAgents](samples/AddAndListCustomAgents)** — Load custom agents from the community
+  - **[ConsoleWinFormsGenerator](samples/ConsoleWinFormsGenerator)** — Generate WinForms applications using dynamic agents
   - **[AspireApp](samples/AspireApp)** — Production-grade Blazor dashboard with REST API
 
 ---
@@ -133,7 +136,7 @@ public class MyController
 }
 ```
 
-See [ConsoleSimple](samples/ConsoleSimple) for the complete 6-step walkthrough, [ConsoleDynamicAgents](samples/ConsoleDynamicAgents) for dynamic agent loading, and [Getting Started](docs/getting-started.md) for detailed usage.
+See [ConsoleSimple](samples/ConsoleSimple) for the complete 6-step walkthrough, [AddAndListCustomAgents](samples/AddAndListCustomAgents) for dynamic agent loading, [ConsoleWinFormsGenerator](samples/ConsoleWinFormsGenerator) for application generation, and [Getting Started](docs/getting-started.md) for detailed usage.
 
 ---
 

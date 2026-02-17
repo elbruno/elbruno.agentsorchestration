@@ -5,6 +5,7 @@ The AgentRepository library enables you to extend your orchestration system with
 ## Overview
 
 Dynamic agent loading allows you to:
+
 - **Load agents at runtime** from GitHub, URLs, or local files
 - **Extend the 11 built-in agents** with domain-specific experts
 - **Cache downloaded agents** for faster subsequent loads
@@ -70,6 +71,7 @@ var agent = await manager.LoadAndRegisterAgentAsync("WinFormsExpert");
 ```
 
 Available agents in Awesome Copilot Repository:
+
 - `WinFormsExpert` - Windows Forms development expert
 - `se-security-reviewer` - Security-focused code reviewer
 - See [full list](https://github.com/github/awesome-copilot/tree/main/agents)
@@ -192,6 +194,7 @@ await manager.LoadAndRegisterAgentAsync("WinFormsExpert");
 ```
 
 The agent's instructions cover:
+
 - .NET 10+ project setup
 - Designer code context (what's allowed/prohibited)
 - MVVM binding requirements
@@ -215,6 +218,7 @@ await manager.LoadAndRegisterAgentAsync("se-security-reviewer");
 ```
 
 The agent provides:
+
 - Targeted review plans based on code type
 - Specific vulnerability checks
 - Code examples for fixes
@@ -429,13 +433,14 @@ var options = new AgentRepositoryOptions
 ## API Reference
 
 See the full API documentation:
+
 - [AwesomeCopilotAgentLoader](../src/ElBruno.AgentsOrchestration.AgentRepository/Services/AwesomeCopilotAgentLoader.cs)
 - [DynamicAgentManager](../src/ElBruno.AgentsOrchestration.AgentRepository/Services/DynamicAgentManager.cs)
 - [AgentDefinitionParser](../src/ElBruno.AgentsOrchestration.AgentRepository/Services/AgentDefinitionParser.cs)
 
 ## Examples
 
-- [ConsoleDynamicAgents](../samples/ConsoleDynamicAgents) - Complete working example
+- [AddAndListCustomAgents](../samples/AddAndListCustomAgents) - Complete working example
 - [Awesome Copilot Repository](https://github.com/github/awesome-copilot) - Community agent definitions
 
 ## Next Steps

@@ -1,6 +1,6 @@
 # Samples Overview
 
-This repository includes five samples that demonstrate the **ElBruno.AgentsOrchestration** libraries at different levels of complexity. Choose the one that matches your learning goals.
+This repository includes six samples that demonstrate the **ElBruno.AgentsOrchestration** libraries at different levels of complexity. Choose the one that matches your learning goals.
 
 ## Quick Comparison
 
@@ -9,7 +9,8 @@ This repository includes five samples that demonstrate the **ElBruno.AgentsOrche
 | **[ConsoleSimple](../samples/ConsoleSimple)** | ⭐ Minimal | Learning the basics | Factory method setup, event streaming, single orchestration |
 | **[ConsoleCompleteChat](../samples/ConsoleCompleteChat)** | ⭐⭐ Intermediate | Interactive use | Multi-turn chat, session management, app launcher |
 | **[ConsoleFlowTraces](../samples/ConsoleFlowTraces)** | ⭐⭐ Intermediate | Debugging & visualization | Agent flow tracking, verbose event logging, ASCII diagrams |
-| **[ConsoleDynamicAgents](../samples/ConsoleDynamicAgents)** | ⭐⭐ Intermediate | Dynamic agent loading | Load agents from Awesome Copilot, agent management |
+| **[AddAndListCustomAgents](../samples/AddAndListCustomAgents)** | ⭐⭐ Intermediate | Dynamic agent loading | Load agents from Awesome Copilot, agent management |
+| **[ConsoleWinFormsGenerator](../samples/ConsoleWinFormsGenerator)** | ⭐⭐⭐ Advanced | Generating WinForms apps | Dynamic agents in action, application generation |
 | **[AspireApp](../samples/AspireApp)** | ⭐⭐⭐ Advanced | Production patterns | Blazor UI, REST API, SignalR, health checks, tracing |
 
 ---
@@ -165,11 +166,11 @@ This sample is perfect for learning how the orchestration engine works under the
 
 ---
 
-## ConsoleDynamicAgents — Dynamic Agent Loading
+## AddAndListCustomAgents — Dynamic Agent Loading
 
-**Location:** `samples/ConsoleDynamicAgents/`
+**Location:** `samples/AddAndListCustomAgents/`
 
-**Purpose:** Demonstrate how to dynamically load agent definitions from the Awesome Copilot Repository at runtime.
+**Purpose:** Demonstrate how to dynamically load and register custom agent definitions from the Awesome Copilot Repository.
 
 **What it does:**
 
@@ -189,7 +190,7 @@ This sample is perfect for learning how the orchestration engine works under the
 **Run it:**
 
 ```bash
-dotnet run --project samples/ConsoleDynamicAgents
+dotnet run --project samples/AddAndListCustomAgents
 ```
 
 **Code highlight:**
@@ -244,6 +245,118 @@ Console.WriteLine($"Total: {allAgents.Count} agents");
 ```
 
 See the [Dynamic Agents documentation](../docs/DYNAMIC_AGENTS.md) for complete usage guide.
+
+---
+
+## ConsoleWinFormsGenerator — Generate WinForms Applications
+
+**Location:** `samples/ConsoleWinFormsGenerator/`
+
+**Purpose:** Demonstrate how to use dynamic Agent loading to generate a complete Windows Forms application with professional structure and best practices.
+
+**What it does:**
+
+- Loads the 11 built-in core agents
+- Dynamically loads the **WinForms Expert** agent from Awesome Copilot Repository
+- Generates a complete **Todo Manager WinForms application** with:
+  - Professional UI with proper form design
+  - MVVM pattern with data models
+  - CRUD operations (Create, Read, Update, Delete)
+  - JSON-based data persistence
+  - Input validation and error handling
+  - WinForms best practices and patterns
+- Validates the generated code and auto-fixes any build errors
+- Provides build review feedback on quality and best practices
+
+**When to use this:**
+
+- You want to generate complete WinForms applications automatically
+- You need to see dynamic agents in action generating real code
+- You're learning application generation patterns
+- You want to understand how specialized agents improve code quality
+- You need a template for WinForms project generation
+
+**Run it:**
+
+```bash
+dotnet run --project samples/ConsoleWinFormsGenerator
+```
+
+**Code highlight:**
+
+```csharp
+// Initialize core agents
+var staticStore = new AgentConfigurationStore();
+
+// Load WinForms Expert dynamically
+var loader = new AwesomeCopilotAgentLoader();
+var manager = new DynamicAgentManager(staticStore, loader);
+var winFormsAgent = await manager.LoadAndRegisterAgentAsync("WinFormsExpert");
+
+// Create orchestration service with dynamic agents
+var service = OrchestrationServiceFactory.Create();
+
+// Generate application
+var result = await service.RunAsync(
+    new OrchestrationRequest("Create a professional WinForms Todo Manager application..."),
+    CancellationToken.None
+);
+```
+
+**Key features:**
+
+- **Dynamic Agent Integration** — Specialized WinForms expert improves code quality
+- **Full Application Generation** — Complete, buildable WinForms project with all files
+- **Multi-Agent Coordination** — Planner, Coder, Designer, Fixer, and BuildReviewer work together
+- **Auto-Repair** — The Fixer agent automatically corrects any build errors
+- **Quality Analysis** — BuildReviewer provides feedback on code quality and patterns
+- **Production-Ready** — Generated code follows .NET best practices and WinForms patterns
+
+**Output example:**
+
+```
+🪟 WinForms Application Generator with Dynamic Agent
+====================================================
+
+✅ Loaded 11 core agents
+
+📦 Loading WinForms Expert agent...
+✅ Loaded: WinForms Expert (👨‍💼)
+
+🔨 Starting orchestration to generate WinForms application...
+
+[Real-time orchestration events streaming...]
+
+✨ Orchestration completed!
+
+📁 Workspace: D:\...\samples\workspaces\20260216143022-create-a-professional-winforms/
+📊 Status: CompletedSuccessfully
+
+📄 Summary:
+✅ Successfully generated a complete WinForms Todo Manager application
+   - MainForm.cs with ListView control
+   - TaskModel.cs data model
+   - TaskRepository.cs with JSON persistence
+   - Input validation and error handling
+   - Proper MVVM pattern implementation
+
+🎉 Your WinForms application is ready!
+```
+
+**Generated Project Structure:**
+
+```
+workspace/
+├── Program.cs               # Application entry point
+├── MainForm.cs              # Main UI form
+├── MainForm.Designer.cs     # Designer-generated UI code  
+├── TaskModel.cs             # Data model
+├── TaskRepository.cs        # Data persistence
+├── project.csproj           # Project configuration
+└── bin/                     # Compiled output
+```
+
+Perfect for understanding how the orchestration system can generate complete applications with specialized agents!
 
 ---
 
@@ -335,6 +448,14 @@ dotnet run --project samples/AspireApp/AppHost
 
 → Try **ConsoleFlowTraces**. It shows detailed event logging and agent flow diagrams.
 
+### I want to understand dynamic agent loading
+
+→ Explore **AddAndListCustomAgents**. It shows how to load specialized agents from the community.
+
+### I want to see agents generating applications
+
+→ Try **ConsoleWinFormsGenerator**. It demonstrates agents working together to generate a complete WinForms application using dynamic agent expertise.
+
 ### I'm building a web app or deploying to production
 
 → Use **AspireApp** as your template. It includes everything: UI, API, health checks, tracing.
@@ -347,7 +468,7 @@ dotnet run --project samples/AspireApp/AppHost
 
 ## Common Patterns Across All Samples
 
-All four samples follow the same core initialization pattern:
+All six samples follow the same core initialization pattern:
 
 ```csharp
 // Option 1: Simplified factory method (ConsoleSimple, ConsoleFlowTraces)
@@ -382,6 +503,8 @@ The only differences are:
 - **ConsoleSimple** — runs once and exits, minimal event logging
 - **ConsoleCompleteChat** — wraps in a loop with session management and conversation memory
 - **ConsoleFlowTraces** — verbose event logging with agent flow visualization
+- **AddAndListCustomAgents** — demonstrates dynamic agent loading from repository
+- **ConsoleWinFormsGenerator** — uses dynamic agents to generate complete applications
 - **AspireApp** — runs as a web service with Blazor UI and SignalR streaming
 
 ---
