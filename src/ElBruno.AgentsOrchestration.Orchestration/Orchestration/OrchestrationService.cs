@@ -319,21 +319,34 @@ public sealed class OrchestrationService
         if (extension is ".csproj" or ".props" or ".targets" or ".xml")
         {
             var start = trimmed.IndexOf("<Project", StringComparison.OrdinalIgnoreCase);
-            var end = trimmed.LastIndexOf("</Project>", StringComparison.OrdinalIgnoreCase);
-            if (start >= 0 && end > start)
+            if (start >= 0)
             {
-                var length = end + "</Project>".Length - start;
-                return trimmed.Substring(start, length).Trim();
+                // Find the matching closing tag for the first <Project>
+                var end = trimmed.IndexOf("</Project>", start, StringComparison.OrdinalIgnoreCase);
+                if (end > start)
+                {
+                    var length = end + "</Project>".Length - start;
+                    return trimmed.Substring(start, length).Trim();
+                }
             }
         }
 
         if (extension == ".cs")
         {
             var lines = trimmed.Split('\n');
+            var instructionKeywords = new[] { "return only", "target file", "do not include", "explanations", "markdown", "code fence", "Generated for", "final content" };
+            
             var firstCodeLine = -1;
             for (var i = 0; i < lines.Length; i++)
             {
                 var line = lines[i].TrimStart();
+                
+                // Skip lines that look like instruction echoes
+                if (instructionKeywords.Any(keyword => line.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+                
                 if (line.StartsWith("using ", StringComparison.Ordinal)
                     || line.StartsWith("namespace ", StringComparison.Ordinal)
                     || line.StartsWith("public ", StringComparison.Ordinal)
@@ -351,9 +364,17 @@ public sealed class OrchestrationService
                 }
             }
 
-            if (firstCodeLine > 0)
+            if (firstCodeLine >= 0)
             {
-                return string.Join('\n', lines.Skip(firstCodeLine)).Trim();
+                // Filter out instruction echo lines from the result
+                var codeLines = lines.Skip(firstCodeLine)
+                    .Where(line => !instructionKeywords.Any(keyword => line.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                
+                if (codeLines.Count > 0)
+                {
+                    return string.Join('\n', codeLines).Trim();
+                }
             }
         }
 
