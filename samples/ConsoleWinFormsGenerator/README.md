@@ -1,14 +1,15 @@
 # ConsoleWinFormsGenerator Sample
 
-This sample demonstrates how to use the **AgentsOrchestration** library with a dynamically loaded WinForms Expert agent to automatically generate a complete Windows Forms application.
+This sample demonstrates how to use the **AgentsOrchestration** library to automatically generate a Windows Forms application, with integrated build validation to ensure the generated code compiles successfully.
 
 ## Features
 
-- **Dynamic Agent Loading**: Loads the WinForms Expert agent from the Awesome Copilot Repository
-- **Full Application Generation**: Generates a complete WinForms application (UI, models, data persistence)
-- **Agent Integration**: Combines 11 core agents with domain-specific expertise from the WinForms Expert
-- **Error Handling**: Gracefully handles failures if dynamic agent loading is unavailable
-- **Real-Time Progress**: Shows orchestration events and progress
+- **Dynamic Agent Loading**: Optionally loads the WinForms Expert agent from Awesome Copilot Repository
+- **Full Application Generation**: Generates a complete, buildable WinForms project
+- **Build Validation**: Automatically validates that generated code compiles
+- **Error Reporting**: Shows detailed build errors if validation fails
+- **Agent Integration**: Combines 11 core agents including Planner, Coder, Designer, Fixer, and BuildReviewer
+- **Auto-Repair**: The Fixer agent automatically attempts to fix build errors during orchestration
 
 ## Running the Sample
 
@@ -19,19 +20,16 @@ dotnet run
 
 ## What It Does
 
-1. **Initializes Core Agents** (11 default agents including Planner, Coder, Designer, Fixer, BuildReviewer)
-2. **Dynamically Loads WinForms Expert** from the Awesome Copilot Repository
-3. **Generates a Complete Todo Manager Application** with:
-   - Main WinForms window with professional styling
-   - ListView for task management
-   - Add/Edit/Delete functionality
-   - Task completion tracking
-   - JSON-based persistence
-   - MVVM pattern with proper separation of concerns
-   - Input validation and error handling
-4. **Validates the Build** and auto-fixes any issues
-5. **Provides Build Review** feedback on code quality and best practices
-6. **Outputs Ready-to-Run Application** in a timestamped workspace
+1. **Initializes Core Agents** (11 default agents)
+2. **Optionally Loads WinForms Expert** from Awesome Copilot Repository
+3. **Generates a Simple Counter Application** with:
+   - Main WinForms form titled "Counter App"
+   - Label to display the counter value
+   - Increment and Reset buttons
+   - Clean, straightforward code structure
+4. **Validates the Build** by attempting to compile the generated code
+5. **Reports Results** with detailed error messages if build fails
+6. **Provides Orchestration Summary** showing what was generated
 
 ## Expected Output
 
@@ -44,40 +42,38 @@ dotnet run
 📦 Loading WinForms Expert agent...
 ✅ Loaded: WinForms Expert (👨‍💼)
 
-🔨 Starting orchestration to generate WinForms application...
+🔨 Starting orchestration to generate WinForms app...
 
-📝 Prompt: Create a professional WinForms application with the following features:...
-
-[Events streaming real-time progress...]
+[Orchestration events...]
 
 ✨ Orchestration completed!
 
-📁 Workspace: D:\elbruno\elbruno.agentsorchestration\samples\workspaces\20260216143022-create-a-professional-winforms/
-📊 Status: CompletedSuccessfully
+📁 Workspace: C:\Users\...\orchestration-workspaces\20260217005325-create-a-simple-windows-forms/
+📋 Generated 5 tasks
 
-📄 Summary:
-✅ Successfully generated a complete WinForms Todo Manager application
+🔍 Validating generated code build...
+✅ Code builds successfully!
 
 🎉 Your WinForms application is ready!
 📦 To run it:
-   cd D:\elbruno\elbruno.agentsorchestration\samples\workspaces\20260216143022-create-a-professional-winforms/
+   cd C:\Users\...\orchestration-workspaces\20260217005325-create-a-simple-windows-forms/
    dotnet run
 ```
 
-## Generated Application Structure
+## Build Validation
 
-The orchestration generates a complete, buildable WinForms project with:
+The sample now includes automatic build validation that:
 
-```
-workspace/
-├── Program.cs           # Application entry point
-├── MainForm.cs          # Main UI form
-├── MainForm.Designer.cs # Designer-generated UI code
-├── TaskModel.cs         # Data model
-├── TaskRepository.cs    # Data persistence
-├── project.csproj       # WinForms project configuration
-└── bin/                 # Build output
-```
+1. **Locates** the generated `.csproj` file
+2. **Attempts** to compile the generated code using `dotnet build`
+3. **Parses** compiler errors if the build fails
+4. **Reports** detailed error messages to help with debugging
+
+If the build fails, you can:
+
+- Review the workspace files manually
+- Check the Fixer agent's output in the orchestration summary
+- Edit the files manually and rebuild
 
 ## How It Works
 
@@ -85,138 +81,35 @@ workspace/
 
 The **Orchestrator** delegates tasks to specialized agents:
 
-- **Planner** — Creates a detailed implementation plan
-- **Designer** — Creates form layouts and UI structure
-- **Coder** — Implements business logic and event handlers
-- **WinForms Expert** (dynamic) — Validates WinForms patterns and best practices
-- **Fixer** — Corrects any build errors automatically
-- **BuildReviewer** — Analyzes code quality and provides recommendations
+- **Planner** — Creates implementation plan for the Counter application
+- **Coder** — Generates C# code (Program.cs, MainForm.cs)
+- **Designer** — Creates form layouts and control configurations
+- **Fixer** — Automatically attempts to fix build errors
+- **BuildReviewer** — Analyzes code quality and provides feedback
 
 ### 2. 6-Step Pipeline
 
 | Step | Agent | Task |
 |------|-------|------|
-| 1. Plan | 🗺️ Planner | Understand requirements, create implementation plan |
-| 2. Parse | 🧭 Orchestrator | Parse plan, create task phases |
-| 3. Execute | 💻 Coder / 🎨 Designer | Generate code and UI |
-| 4. Verify | 🔧 Fixer | Build validation, auto-repair |
-| 5. Review | 📊 BuildReviewer | Analyze quality, security, patterns |
-| 6. Report | 🧭 Orchestrator | Summarize results |
+| 1. Plan | Planner | Create implementation plan |
+| 2. Parse | Orchestrator | Parse plan, create task phases |
+| 3. Execute | Coder / Designer | Generate code and forms |
+| 4. Verify | Fixer | Build validation, auto-repair |
+| 5. Review | BuildReviewer | Analyze quality and patterns |
+| 5. Review | BuildReviewer | Analyze quality and patterns |
+| 6. Report | Orchestrator | Final summary |
 
-### 3. Dynamic Agent Role
+## Generated Application Structure
 
-The **WinForms Expert** provides specialized guidance on:
+When successful, the sample generates a buildable WinForms project with:
 
-- Windows Forms Designer compatibility
-- MVVM patterns for WinForms
-- Windows Forms best practices
-- Control initialization and binding
-- Event handler patterns
-- Resource management
-
-## API Usage
-
-```csharp
-// Initialize services
-var staticStore = new AgentConfigurationStore();
-var loader = new AwesomeCopilotAgentLoader();
-var manager = new DynamicAgentManager(staticStore, loader);
-
-// Load specialized agent
-var winFormsAgent = await manager.LoadAndRegisterAgentAsync("WinFormsExpert");
-
-// Create orchestration service
-var service = OrchestrationServiceFactory.Create();
-
-// Run orchestration with custom prompt
-var result = await service.RunAsync(
-    new OrchestrationRequest("Your WinForms requirements..."),
-    CancellationToken.None
-);
-
-// Access generated files
-Console.WriteLine($"Generated in: {result.WorkspacePath}");
-Console.WriteLine($"Summary: {result.Summary}");
 ```
-
-## Customization
-
-### Different Application Types
-
-Modify the prompt in `Program.cs` to generate different WinForms applications:
-
-```csharp
-// Generate a data entry form
-var prompt = @"Create a WinForms application for customer data entry...";
-
-// Generate a reporting dashboard
-var prompt = @"Create a WinForms dashboard with charts and real-time data...";
-
-// Generate a document editor
-var prompt = @"Create a rich text editor WinForms application...";
-```
-
-### Load Different Agents
-
-Extend the sample to load additional specialized agents:
-
-```csharp
-// Load database expert
-var dbAgent = await manager.LoadAndRegisterAgentAsync("DatabaseExpert");
-
-// Load UI/UX expert  
-var uiAgent = await manager.LoadAndRegisterAgentAsync("UIUXExpert");
-
-// Load performance expert
-var perfAgent = await manager.LoadAndRegisterAgentAsync("PerformanceExpert");
-```
-
-### Conditional Agent Loading
-
-Handle cases where agents may not be available:
-
-```csharp
-try
-{
-    var specializedAgent = await manager.LoadAndRegisterAgentAsync("SpecializedAgent");
-    Console.WriteLine($"✅ Using specialized agent: {specializedAgent.Name}");
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"⚠️  Using standard agents: {ex.Message}");
-}
-```
-
-## Troubleshooting
-
-### Build Errors
-
-If the generated application doesn't compile:
-
-1. Check the workspace logs
-2. Verify WinForms framework is installed: `dotnet workload install windowsdesktop`
-3. The Fixer agent will automatically attempt repairs
-
-### Missing Dynamic Agent
-
-If the WinForms Expert fails to load:
-
-1. Check internet connectivity for Awesome Copilot Repository
-2. Verify agent is available: <https://github.com/github/awesome-copilot>
-3. The sample continues with standard 11 agents
-
-### Network Issues
-
-Configure timeout and caching:
-
-```csharp
-var options = new AgentRepositoryOptions
-{
-    TimeoutSeconds = 60,
-    CacheExpirationHours = 24
-};
-
-var loader = new AwesomeCopilotAgentLoader(options);
+workspace/
+├── Program.cs           # Application entry point with Main()
+├── MainForm.cs          # Main form definition
+├── MainForm.Designer.cs # Designer-generated UI code
+├── project.csproj       # WinForms project configuration
+└── bin/                 # Build output
 ```
 
 ## Learn More
