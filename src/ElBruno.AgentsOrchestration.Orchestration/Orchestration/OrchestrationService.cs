@@ -330,10 +330,19 @@ public sealed class OrchestrationService
         if (extension == ".cs")
         {
             var lines = trimmed.Split('\n');
+            var instructionKeywords = new[] { "return only", "target file", "do not include", "explanations", "markdown", "code fence", "Generated for", "final content" };
+            
             var firstCodeLine = -1;
             for (var i = 0; i < lines.Length; i++)
             {
                 var line = lines[i].TrimStart();
+                
+                // Skip lines that look like instruction echoes
+                if (instructionKeywords.Any(keyword => line.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+                
                 if (line.StartsWith("using ", StringComparison.Ordinal)
                     || line.StartsWith("namespace ", StringComparison.Ordinal)
                     || line.StartsWith("public ", StringComparison.Ordinal)
@@ -353,7 +362,15 @@ public sealed class OrchestrationService
 
             if (firstCodeLine >= 0)
             {
-                return string.Join('\n', lines.Skip(firstCodeLine)).Trim();
+                // Filter out instruction echo lines from the result
+                var codeLines = lines.Skip(firstCodeLine)
+                    .Where(line => !instructionKeywords.Any(keyword => line.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                
+                if (codeLines.Count > 0)
+                {
+                    return string.Join('\n', codeLines).Trim();
+                }
             }
         }
 
