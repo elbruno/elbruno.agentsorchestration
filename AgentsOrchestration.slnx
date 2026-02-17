@@ -2,10 +2,12 @@
   <Folder Name="/src/">
     <Project Path="src/ElBruno.AgentsOrchestration.Abstractions/ElBruno.AgentsOrchestration.Abstractions.csproj" />
     <Project Path="src/ElBruno.AgentsOrchestration.Orchestration/ElBruno.AgentsOrchestration.Orchestration.csproj" />
+    <Project Path="src/ElBruno.AgentsOrchestration.AgentRepository/ElBruno.AgentsOrchestration.AgentRepository.csproj" />
     <Project Path="src/ElBruno.AgentsOrchestration.Core/ElBruno.AgentsOrchestration.Core.csproj" />
     <Project Path="src/ElBruno.AgentsOrchestration.Views/ElBruno.AgentsOrchestration.Views.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/AgentsOrchestration.AgentRepository.Tests/AgentsOrchestration.AgentRepository.Tests.csproj" />
     <Project Path="tests/AgentsOrchestration.Core.Tests/AgentsOrchestration.Core.Tests.csproj" />
     <Project Path="tests/AgentsOrchestration.Views.Tests/AgentsOrchestration.Views.Tests.csproj" />
   </Folder>
