@@ -29,6 +29,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ElBruno.AgentsOrchestration.Abstractions\ElBruno.AgentsOrchestration.Abstractions.csproj" />
     <ProjectReference Include="..\ElBruno.AgentsOrchestration.Orchestration\ElBruno.AgentsOrchestration.Orchestration.csproj" />
+    <ProjectReference Include="..\ElBruno.AgentsOrchestration.AgentRepository\ElBruno.AgentsOrchestration.AgentRepository.csproj" />
   </ItemGroup>
 
   <ItemGroup>
