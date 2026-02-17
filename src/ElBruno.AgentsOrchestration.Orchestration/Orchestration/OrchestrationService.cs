@@ -319,11 +319,15 @@ public sealed class OrchestrationService
         if (extension is ".csproj" or ".props" or ".targets" or ".xml")
         {
             var start = trimmed.IndexOf("<Project", StringComparison.OrdinalIgnoreCase);
-            var end = trimmed.LastIndexOf("</Project>", StringComparison.OrdinalIgnoreCase);
-            if (start >= 0 && end > start)
+            if (start >= 0)
             {
-                var length = end + "</Project>".Length - start;
-                return trimmed.Substring(start, length).Trim();
+                // Find the matching closing tag for the first <Project>
+                var end = trimmed.IndexOf("</Project>", start, StringComparison.OrdinalIgnoreCase);
+                if (end > start)
+                {
+                    var length = end + "</Project>".Length - start;
+                    return trimmed.Substring(start, length).Trim();
+                }
             }
         }
 
