@@ -11,6 +11,15 @@ A **.NET 10** library suite inspired by [Burke Holland's "Ultralight Orchestrati
 
 Build software automatically using a coordinated team of **11 specialized AI agents**—including **Orchestrator**, **Planner**, **Coder**, **Designer**, **Researcher**, **Fixer**, **BuildReviewer**, **SecurityExpert**, **TestingExpert**, **DocumentationExpert**, and **SoftwareArchitect**—that work together to execute your prompts.
 
+## ✨ New: Dynamic Agent Loading
+
+Load specialized agents from the [Awesome Copilot Repository](https://github.com/github/awesome-copilot) at runtime! Extend your orchestration with domain-specific experts like:
+- **WinForms Expert** for Windows Forms development
+- **Security Reviewer** for OWASP Top 10 and LLM security
+- **Any custom agent** you create or find in the community
+
+See [ConsoleDynamicAgents sample](samples/ConsoleDynamicAgents) for a working example.
+
 ## 🚀 See It in Action
 
 ![Aspire App Running](images/AgentOrch-Anim01%20(2).gif)
@@ -98,19 +107,33 @@ builder.Services.AddOrchestration(options =>
     options.MaxFixAttempts = 3;
 });
 
+// With dynamic agent support
+builder.Services.AddDynamicAgents(options =>
+{
+    options.CacheDirectory = "./agent-cache";
+    options.CacheExpirationHours = 24;
+});
+
 // Then inject
 public class MyController
 {
     private readonly OrchestrationService _service;
+    private readonly DynamicAgentManager _agentManager;
     
-    public MyController(OrchestrationService service)
+    public MyController(OrchestrationService service, DynamicAgentManager agentManager)
     {
         _service = service;
+        _agentManager = agentManager;
+    }
+    
+    public async Task LoadSpecializedAgent()
+    {
+        await _agentManager.LoadAndRegisterAgentAsync("WinFormsExpert");
     }
 }
 ```
 
-See [ConsoleSimple](samples/ConsoleSimple) for the complete 6-step walkthrough and [Getting Started](docs/getting-started.md) for detailed usage.
+See [ConsoleSimple](samples/ConsoleSimple) for the complete 6-step walkthrough, [ConsoleDynamicAgents](samples/ConsoleDynamicAgents) for dynamic agent loading, and [Getting Started](docs/getting-started.md) for detailed usage.
 
 ---
 

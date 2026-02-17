@@ -1,6 +1,6 @@
 # Samples Overview
 
-This repository includes four samples that demonstrate the **ElBruno.AgentsOrchestration** libraries at different levels of complexity. Choose the one that matches your learning goals.
+This repository includes five samples that demonstrate the **ElBruno.AgentsOrchestration** libraries at different levels of complexity. Choose the one that matches your learning goals.
 
 ## Quick Comparison
 
@@ -9,6 +9,7 @@ This repository includes four samples that demonstrate the **ElBruno.AgentsOrche
 | **[ConsoleSimple](../samples/ConsoleSimple)** | ⭐ Minimal | Learning the basics | Factory method setup, event streaming, single orchestration |
 | **[ConsoleCompleteChat](../samples/ConsoleCompleteChat)** | ⭐⭐ Intermediate | Interactive use | Multi-turn chat, session management, app launcher |
 | **[ConsoleFlowTraces](../samples/ConsoleFlowTraces)** | ⭐⭐ Intermediate | Debugging & visualization | Agent flow tracking, verbose event logging, ASCII diagrams |
+| **[ConsoleDynamicAgents](../samples/ConsoleDynamicAgents)** | ⭐⭐ Intermediate | Dynamic agent loading | Load agents from Awesome Copilot, agent management |
 | **[AspireApp](../samples/AspireApp)** | ⭐⭐⭐ Advanced | Production patterns | Blazor UI, REST API, SignalR, health checks, tracing |
 
 ---
@@ -161,6 +162,88 @@ Orchestrator → Designer: Create styles.css
 ```
 
 This sample is perfect for learning how the orchestration engine works under the hood.
+
+---
+
+## ConsoleDynamicAgents — Dynamic Agent Loading
+
+**Location:** `samples/ConsoleDynamicAgents/`
+
+**Purpose:** Demonstrate how to dynamically load agent definitions from the Awesome Copilot Repository at runtime.
+
+**What it does:**
+
+- Loads the 11 built-in static agents
+- Downloads and registers **WinForms Expert** from Awesome Copilot Repository
+- Downloads and registers **Security Reviewer** from Awesome Copilot Repository
+- Lists all available agents (static and dynamic)
+- Demonstrates agent management and querying
+
+**When to use this:**
+
+- You need specialized agents for specific domains (WinForms, security, etc.)
+- You want to extend the orchestration system without modifying core code
+- You're building a plugin architecture with community agents
+- You need to load custom agents from your organization
+
+**Run it:**
+
+```bash
+dotnet run --project samples/ConsoleDynamicAgents
+```
+
+**Code highlight:**
+
+```csharp
+// Initialize agent manager
+var staticStore = new AgentConfigurationStore();
+var loader = new AwesomeCopilotAgentLoader();
+var manager = new DynamicAgentManager(staticStore, loader);
+
+// Load agents from Awesome Copilot Repository
+var winFormsAgent = await manager.LoadAndRegisterAgentAsync("WinFormsExpert");
+var securityAgent = await manager.LoadAndRegisterAgentAsync("se-security-reviewer");
+
+// Query agents
+var allAgents = manager.GetAllAgents();
+Console.WriteLine($"Total: {allAgents.Count} agents");
+```
+
+**Key features:**
+
+- HTTP client with caching for downloaded agents
+- YAML front matter parsing for agent metadata
+- Agent lifecycle management (load, unload, query)
+- Support for multiple sources (GitHub, URL, local file)
+
+**Output example:**
+
+```
+🤖 Dynamic Agent Loading Sample
+================================
+
+✅ Loaded 11 static agents
+
+📦 Loading WinForms Expert agent...
+✅ Loaded: WinForms Expert
+   Icon: 👨‍💼
+   Instructions preview: # WinForms Development Guidelines...
+
+📦 Loading Security Reviewer agent...
+✅ Loaded: SE: Security
+   Icon: 🔒
+
+📋 All available agents:
+   ⚙️ 📊 BuildReviewer
+   ⚙️ 💻 Coder
+   ...
+   🔌 🔒 SE: Security
+   🔌 👨‍💼 WinForms Expert
+
+✅ Total: 13 (11 static, 2 dynamic)
+```
+
+See the [Dynamic Agents documentation](../docs/DYNAMIC_AGENTS.md) for complete usage guide.
 
 ---
 
