@@ -351,7 +351,7 @@ public sealed class OrchestrationService
                 }
             }
 
-            if (firstCodeLine > 0)
+            if (firstCodeLine >= 0)
             {
                 return string.Join('\n', lines.Skip(firstCodeLine)).Trim();
             }
