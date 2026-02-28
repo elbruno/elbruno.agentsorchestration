@@ -173,9 +173,11 @@ public class SecurityAndEdgeCaseTests
     {
         var plan = OrchestrationService.ParsePlan("", "test prompt");
 
-        Assert.Single(plan.Phases);
-        Assert.Equal("Implementation", plan.Phases.First().Name);
-        Assert.Equal(3, plan.Phases.First().Tasks.Count);
+        Assert.Equal(4, plan.Phases.Count);
+        Assert.Equal("Project Setup", plan.Phases.First().Name);
+        Assert.Equal("Core Implementation", plan.Phases.ElementAt(1).Name);
+        Assert.Equal("Quality Review", plan.Phases.ElementAt(2).Name);
+        Assert.Equal("Validation", plan.Phases.ElementAt(3).Name);
     }
 
     [Fact]
@@ -185,8 +187,8 @@ public class SecurityAndEdgeCaseTests
 
         var plan = OrchestrationService.ParsePlan(output, "test prompt");
 
-        Assert.Single(plan.Phases);
-        Assert.Equal("Implementation", plan.Phases.First().Name);
+        Assert.Equal(4, plan.Phases.Count);
+        Assert.Equal("Project Setup", plan.Phases.First().Name);
     }
 
     [Fact]
