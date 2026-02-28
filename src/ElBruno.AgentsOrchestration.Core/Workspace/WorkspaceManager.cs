@@ -5,9 +5,11 @@ namespace ElBruno.AgentsOrchestration.Workspace;
 public sealed class WorkspaceManager : IWorkspace
 {
     private readonly string _rootPath;
+    private static readonly char[] _invalidFileNameChars = ['<', '>', ':', '"', '|', '?', '*', '\\', '/', '\0'];
 
     public WorkspaceManager(string rootPath)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(rootPath, nameof(rootPath));
         _rootPath = Path.GetFullPath(rootPath);
     }
 
@@ -44,6 +46,20 @@ public sealed class WorkspaceManager : IWorkspace
 
     public string ReadFile(string relativePath)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath, nameof(relativePath));
+        
+        // Reject paths with ".." to prevent directory traversal
+        if (relativePath.Contains("..", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Path cannot contain '..' segments", nameof(relativePath));
+        }
+        
+        // Reject absolute paths
+        if (Path.IsPathRooted(relativePath))
+        {
+            throw new ArgumentException("Path must be relative", nameof(relativePath));
+        }
+
         var fullPath = Path.GetFullPath(Path.Combine(WorkspacePath, relativePath));
         if (!fullPath.StartsWith(Path.GetFullPath(WorkspacePath), StringComparison.OrdinalIgnoreCase))
         {

@@ -259,6 +259,12 @@ public sealed class OrchestrationService
 
         await PublishAsync(new AgentStreamingEvent(DateTimeOffset.UtcNow, task.AssignedRole, output), cancellationToken);
 
+        // Security: Reject paths with ".." to prevent directory traversal
+        if (task.FileScope.Contains("..", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"File scope '{task.FileScope}' cannot contain '..' segments");
+        }
+
         var fullPath = Path.GetFullPath(Path.Combine(workspacePath, task.FileScope.Replace('/', Path.DirectorySeparatorChar)));
         var normalizedWorkspace = Path.GetFullPath(workspacePath);
         if (!fullPath.StartsWith(normalizedWorkspace, StringComparison.OrdinalIgnoreCase))

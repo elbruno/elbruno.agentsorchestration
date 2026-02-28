@@ -75,6 +75,14 @@ public sealed class SessionPersistence
             if (!File.Exists(filePath))
                 return null;
 
+            // Security: validate file size before loading to prevent resource exhaustion
+            var fileInfo = new FileInfo(filePath);
+            const long maxFileSize = 50 * 1024 * 1024; // 50 MB
+            if (fileInfo.Length > maxFileSize)
+            {
+                throw new InvalidOperationException($"Session file exceeds maximum size of {maxFileSize / (1024 * 1024)} MB");
+            }
+
             var json = await File.ReadAllTextAsync(filePath, cancellationToken);
             return JsonSerializer.Deserialize<ConversationSession>(json, _jsonOptions);
         }

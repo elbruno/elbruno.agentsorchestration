@@ -1,0 +1,30 @@
+[
+  {
+    "persistent_name": "Keaton",
+    "universe": "Usual Suspects",
+    "created_at": "2026-02-28T17:32:00Z",
+    "legacy_named": false,
+    "status": "active"
+  },
+  {
+    "persistent_name": "Fenster",
+    "universe": "Usual Suspects",
+    "created_at": "2026-02-28T17:32:00Z",
+    "legacy_named": false,
+    "status": "active"
+  },
+  {
+    "persistent_name": "Dallas",
+    "universe": "Usual Suspects",
+    "created_at": "2026-02-28T17:32:00Z",
+    "legacy_named": false,
+    "status": "active"
+  },
+  {
+    "persistent_name": "Hockney",
+    "universe": "Usual Suspects",
+    "created_at": "2026-02-28T17:32:00Z",
+    "legacy_named": false,
+    "status": "active"
+  }
+]
