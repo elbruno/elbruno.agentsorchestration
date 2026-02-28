@@ -23,6 +23,15 @@ public sealed class CopilotAgentClient : IAgentClient
 
     public async Task<string> RunAsync(AgentRole role, string prompt, string workspacePath, CancellationToken cancellationToken)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(prompt, nameof(prompt));
+        ArgumentException.ThrowIfNullOrWhiteSpace(workspacePath, nameof(workspacePath));
+        
+        // Input validation: limit prompt size to prevent resource exhaustion
+        if (prompt.Length > 100_000)
+        {
+            throw new ArgumentException("Prompt exceeds maximum length of 100,000 characters", nameof(prompt));
+        }
+
         var config = _store.Get(role);
         var agent = _copilotClient.AsAIAgent(tools: null);
 
