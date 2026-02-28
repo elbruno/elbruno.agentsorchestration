@@ -353,9 +353,9 @@ public class SecurityAndEdgeCaseTests
             var manager = new WorkspaceManager(root);
             manager.CreateWorkspace("test");
 
-            // Attempting to read outside workspace should return empty
-            var result = manager.ReadFile("../../etc/passwd");
-            Assert.Equal(string.Empty, result);
+            // Attempting to read outside workspace should throw ArgumentException
+            var ex = Assert.Throws<ArgumentException>(() => manager.ReadFile("../../etc/passwd"));
+            Assert.Contains("Path cannot contain '..' segments", ex.Message);
         }
         finally
         {

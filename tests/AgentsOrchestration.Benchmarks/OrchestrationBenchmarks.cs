@@ -1,13 +1,12 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using ElBruno.AgentsOrchestration.Agents;
-using ElBruno.AgentsOrchestration.Orchestration;
 using ElBruno.AgentsOrchestration.Workspace;
 
 namespace AgentsOrchestration.Benchmarks;
 
 /// <summary>
-/// Benchmarks for critical orchestration paths: agent instantiation, event processing, and plan parsing.
+/// Benchmarks for critical orchestration paths: agent instantiation and workspace operations.
 /// Run with: dotnet run -c Release --project tests/AgentsOrchestration.Benchmarks
 /// </summary>
 public class OrchestrationBenchmarks
@@ -31,7 +30,6 @@ public class OrchestrationBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        var tempPath = Path.Combine(Path.GetTempPath(), $"benchmark-*");
         foreach (var dir in Directory.GetDirectories(Path.GetTempPath(), "benchmark-*"))
         {
             try { Directory.Delete(dir, true); } catch { }
@@ -49,43 +47,6 @@ public class OrchestrationBenchmarks
     {
         var session = _factory.CreateSession(AgentRole.Planner);
         await session.RunAsync("Create a simple web app", "/workspace", CancellationToken.None);
-    }
-
-    [Benchmark]
-    public void ParsePlan_SimplePhases()
-    {
-        var planOutput = """
-            ## Phase 1: Setup
-            - Task: Create project | Agent: Coder | File: app.csproj
-            ## Phase 2: Implementation
-            - Task: Write logic | Agent: Coder | File: Program.cs
-            - Task: Add styles | Agent: Designer | File: styles.css
-            """;
-
-        OrchestrationService.ParsePlan(planOutput, "build app");
-    }
-
-    [Benchmark]
-    public void ParsePlan_ComplexPhases()
-    {
-        var planOutput = """
-            ## Phase 1: Setup
-            - Task: Create project | Agent: Coder | File: app.csproj
-            - Task: Setup dependencies | Agent: Coder | File: packages.json
-            ## Phase 2: Core Implementation
-            - Task: Write API | Agent: Coder | File: api.cs
-            - Task: Write database layer | Agent: Coder | File: data.cs
-            - Task: Write business logic | Agent: Coder | File: logic.cs
-            ## Phase 3: UI
-            - Task: Create layout | Agent: Designer | File: index.html
-            - Task: Add styles | Agent: Designer | File: styles.css
-            - Task: Add interactions | Agent: Coder | File: app.js
-            ## Phase 4: Testing
-            - Task: Write unit tests | Agent: TestingExpert | File: tests.cs
-            - Task: Write integration tests | Agent: TestingExpert | File: integration.cs
-            """;
-
-        OrchestrationService.ParsePlan(planOutput, "build comprehensive app");
     }
 
     [Benchmark]
